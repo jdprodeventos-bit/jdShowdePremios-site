@@ -33,6 +33,7 @@ td:first-child,th:first-child{text-align:left}
 .oculto{display:none}
 .vend{background:#0b1d3a;border-radius:10px;padding:10px;margin-bottom:10px}
 .tag{display:inline-block;background:#2a4d8f;border-radius:6px;padding:3px 7px;margin:2px;font-size:12px}
+.atraso{color:#ff8a80;font-weight:bold}
 .msg{font-size:13px;margin-top:6px;color:#ffd24a}
 </style>
 </head>
@@ -56,11 +57,33 @@ td:first-child,th:first-child{text-align:left}
       <div class="kpi"><b id="rSem">0</b><span>Na semana</span></div>
       <div class="kpi"><b id="rMes">0</b><span>No mês</span></div>
       <div class="kpi"><b id="rTotal">0</b><span>Total vendidas</span></div>
-      <div class="kpi"><b id="rValor">R$ 0</b><span>Arrecadado total</span></div>
-      <div class="kpi"><b id="rValorHoje">R$ 0</b><span>Arrecadado hoje</span></div>
+      <div class="kpi"><b id="rValor">R$ 0</b><span>Recebido total</span></div>
+      <div class="kpi"><b id="rValorHoje">R$ 0</b><span>Recebido hoje</span></div>
+      <div class="kpi"><b id="rFiado">R$ 0</b><span>A receber (fiado)</span></div>
+      <div class="kpi"><b id="rAtraso" >0</b><span>Fiados atrasados</span></div>
       <div class="kpi"><b id="rEntregues">0</b><span>Cartelas entregues</span></div>
       <div class="kpi"><b id="rComVend">0</b><span>Ainda com vendedores</span></div>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>Arrecadado por forma de pagamento</h2>
+    <div class="rolar"><table>
+      <thead><tr><th>Forma</th><th>Cartelas</th><th>Valor total</th><th>Hoje</th></tr></thead>
+      <tbody id="tabPag"></tbody>
+    </table></div>
+    <div style="font-size:12px;color:#9db4d8;margin-top:6px">"Fiado" é dinheiro ainda a receber. Quando o vendedor repassar o valor, use "alterar pgto" na lista de vendas para mudar a forma.</div>
+  </div>
+
+  <div class="card" style="border:2px solid #ffd24a">
+    <h2>🤝 Fiados a receber</h2>
+    <div id="resumoFiado" style="font-size:13px;color:#9db4d8;margin-bottom:8px"></div>
+    <div id="listaFiados"></div>
+  </div>
+
+  <div class="card">
+    <h2>Desistências (cartelas liberadas)</h2>
+    <div id="listaDesist"></div>
   </div>
 
   <div class="card">
@@ -101,9 +124,15 @@ td:first-child,th:first-child{text-align:left}
   <div class="card">
     <h2>Desempenho por vendedor</h2>
     <div class="rolar"><table>
-      <thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas</th><th>Devolv.</th><th>Comigo</th><th>Hoje</th><th>Semana</th><th>Mês</th><th>Valor</th></tr></thead>
+      <thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas</th><th>Devolv.</th><th>Comigo</th><th>Hoje</th><th>Semana</th><th>Mês</th><th>Recebido</th><th>A receber</th></tr></thead>
       <tbody id="tabela"></tbody>
     </table></div>
+  </div>
+
+  <div class="card" id="cardConflitos" style="display:none;border:2px solid #ff8a80">
+    <h2>⚠️ Conflitos de cartela (vendida duas vezes)</h2>
+    <div style="font-size:12px;color:#9db4d8;margin-bottom:8px">Acontece quando um vendedor registrou sem internet uma cartela que já constava como vendida. A primeira venda enviada vale; confira com o comprador do segundo registro.</div>
+    <div id="listaConflitos"></div>
   </div>
 
   <div class="card">
@@ -112,6 +141,16 @@ td:first-child,th:first-child{text-align:left}
     <button class="b-azul" onclick="baixarCSV()">⬇ Baixar todas as vendas (planilha)</button>
   </div>
 </div>
+</div>
+
+<div id="modalForma" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:60;display:none;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#14305f;border-radius:14px;padding:16px;width:100%;max-width:340px">
+    <div style="font-size:16px;color:#ffd24a;margin-bottom:6px"><b>Como foi pago?</b></div>
+    <button style="width:100%" class="b-ouro" onclick="formaEscolhida('Dinheiro')">💵 Dinheiro</button>
+    <button style="width:100%" class="b-ouro" onclick="formaEscolhida('Pix')">⚡ Pix</button>
+    <button style="width:100%" class="b-ouro" onclick="formaEscolhida('Cartão')">💳 Cartão</button>
+    <button style="width:100%" class="b-cinza" onclick="formaEscolhida('')">Cancelar</button>
+  </div>
 </div>
 
 <script>
@@ -127,6 +166,7 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+let conflitos = {}, desistencias = {};
 let vendedores = {}, cartelas = {}, cadastros = {}, config = {evento:'',preco:0};
 let fotoNova = null, editId = null;
 
@@ -159,6 +199,8 @@ function escutar(){
     document.getElementById('cfPreco').value=config.preco||'';
   });
   db.ref('equipeVendas/vendedores').on('value',s=>{ vendedores=s.val()||{}; desenhar(); });
+  db.ref('equipeVendas/desistencias').on('value',s=>{ desistencias=s.val()||{}; desenhar(); });
+  db.ref('equipeVendas/conflitos').on('value',s=>{ conflitos=s.val()||{}; desenhar(); });
   db.ref('equipeVendas/cadastros').on('value',s=>{ cadastros=s.val()||{}; desenhar(); });
   db.ref('equipeVendas/cartelas').on('value',s=>{ cartelas=s.val()||{}; desenhar(); });
 }
@@ -302,6 +344,45 @@ function desfazerDevolucao(n){
   if(!confirm('Desfazer devolução da cartela '+n+'?')) return;
   db.ref('equipeVendas/cartelas/'+n).remove().catch(erroDb);
 }
+function resolverConflito(k){
+  if(!confirm('Marcar este conflito como resolvido?')) return;
+  db.ref('equipeVendas/conflitos/'+k).remove().catch(erroDb);
+}
+const FORMAS=['Dinheiro','Pix','Cartão','Fiado'];
+function alterarPagamento(n){
+  const c=cartelas[n];
+  const r=prompt('Forma de pagamento da cartela '+n+':\n1 = Dinheiro\n2 = Pix\n3 = Cartão\n4 = Fiado\n\nDigite o número:');
+  if(r===null) return;
+  const f=FORMAS[parseInt(r,10)-1];
+  if(!f){ alert('Opção inválida.'); return; }
+  db.ref('equipeVendas/cartelas/'+n+'/pagamento').set(f).catch(erroDb);
+}
+
+/* ---------- FIADO ---------- */
+function hojeStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtData(s){ if(!s) return 'sem data'; const p=String(s).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : s; }
+function escolherForma(cb){ const m=document.getElementById('modalForma'); m._cb=cb; m.style.display='flex'; }
+function formaEscolhida(f){ const m=document.getElementById('modalForma'); m.style.display='none'; const cb=m._cb; m._cb=null; if(f && cb) cb(f); }
+
+function receberFiado(n){
+  escolherForma(f=>{
+    const ref=db.ref('equipeVendas/cartelas/'+n);
+    ref.once('value').then(s=>{
+      const c=s.val();
+      if(!c || c.pagamento!=='Fiado'){ alert('Essa cartela não está mais como fiado.'); return; }
+      return ref.update({pagamento:f, pagoEm:Date.now(), eraFiado:true});
+    }).catch(erroDb);
+  });
+}
+function desistirFiado(n){
+  const c=cartelas[n];
+  if(!c||c.pagamento!=='Fiado'){ alert('Essa cartela não está como fiado.'); return; }
+  if(!confirm('Registrar a desistência da cartela '+n+' ('+c.comprador+')? Ela volta a ficar disponível com o vendedor.')) return;
+  const chave=db.ref('equipeVendas/desistencias').push().key, upd={};
+  upd['equipeVendas/cartelas/'+n]=null;
+  upd['equipeVendas/desistencias/'+chave]={n:Number(n), vendedorId:c.vendedorId, vendedorNome:c.vendedorNome, comprador:c.comprador, telefone:c.telefone, valor:c.valor, dataPrevista:c.dataPrevista||'', ts:c.ts, desistiuEm:Date.now()};
+  db.ref().update(upd).catch(erroDb);
+}
 function estornar(n){
   const c=cartelas[n];
   if(!confirm('Estornar a venda da cartela '+n+' ('+c.comprador+')? Ela voltará a ficar com o vendedor.')) return;
@@ -313,22 +394,27 @@ function desenhar(){
   const st={}; // por vendedor
   Object.keys(vendedores).forEach(id=>{
     let ent=0; lotesDe(id).forEach(l=>{ent+=l.ate-l.de+1;});
-    st[id]={ent:ent,vend:0,dev:0,hoje:0,sem:0,mes:0,valor:0,devList:[]};
+    st[id]={ent:ent,vend:0,dev:0,hoje:0,sem:0,mes:0,valor:0,fiado:0,devList:[]};
   });
   let tHoje=0,tSem=0,tMes=0,tTotal=0,vTotal=0,vHoje=0;
+  const pg={}; let fiadoTotal=0, atrasados=0; const fiadoList=[]; const hojeS=hojeStr();
   const vendas=[];
   Object.keys(cartelas).forEach(n=>{
     const c=cartelas[n]; if(!c) return;
     const s=st[c.vendedorId];
     if(c.status==='devolvida'){ if(s){s.dev++;s.devList.push(n);} return; }
-    tTotal++; vTotal+=Number(c.valor)||0;
+    tTotal++; const ehF=(c.pagamento==='Fiado');
+    if(ehF){ fiadoTotal+=Number(c.valor)||0; fiadoList.push({n:n,c:c}); if(c.dataPrevista && c.dataPrevista<hojeS) atrasados++; }
+    else { vTotal+=Number(c.valor)||0; if((c.pagoEm||c.ts||0)>=iDia) vHoje+=Number(c.valor)||0; }
+    const fp=c.pagamento||'Não informado'; pg[fp]=pg[fp]||{q:0,v:0,h:0}; pg[fp].q++; pg[fp].v+=Number(c.valor)||0; if((c.ts||0)>=iDia) pg[fp].h+=Number(c.valor)||0;
     vendas.push({n:n,c:c});
     const t=c.ts||0;
-    if(t>=iDia){tHoje++;vHoje+=Number(c.valor)||0;}
+    if(t>=iDia){tHoje++;}
     if(t>=iSem)tSem++;
     if(t>=iMes)tMes++;
-    if(s){ s.vend++; if(t>=iDia)s.hoje++; if(t>=iSem)s.sem++; if(t>=iMes){s.mes++;s.valor+=Number(c.valor)||0;} }
+    if(s){ s.vend++; if(t>=iDia)s.hoje++; if(t>=iSem)s.sem++; if(t>=iMes){s.mes++;if(!ehF) s.valor+=Number(c.valor)||0;} if(s&&ehF) s.fiado+=Number(c.valor)||0; }
   });
+  document.getElementById('tabPag').innerHTML=Object.keys(pg).sort().map(f=>'<tr><td>'+esc(f)+'</td><td>'+pg[f].q+'</td><td>'+moeda(pg[f].v)+'</td><td>'+moeda(pg[f].h)+'</td></tr>').join('')||'<tr><td colspan="4" style="color:#9db4d8">Nenhuma venda ainda.</td></tr>';
   let entTotal=0, comTotal=0;
   Object.keys(st).forEach(id=>{ entTotal+=st[id].ent; comTotal+=Math.max(0,st[id].ent-st[id].vend-st[id].dev); });
   document.getElementById('rHoje').textContent=tHoje;
@@ -337,6 +423,23 @@ function desenhar(){
   document.getElementById('rTotal').textContent=tTotal;
   document.getElementById('rValor').textContent=moeda(vTotal);
   document.getElementById('rValorHoje').textContent=moeda(vHoje);
+  document.getElementById('rFiado').textContent=moeda(fiadoTotal);
+  document.getElementById('rAtraso').textContent=atrasados;
+  fiadoList.sort((x,y)=>(x.c.dataPrevista||'9').localeCompare(y.c.dataPrevista||'9'));
+  document.getElementById('resumoFiado').textContent=fiadoList.length+' cartela(s) reservada(s) • '+moeda(fiadoTotal)+' a receber • '+atrasados+' atrasada(s)';
+  document.getElementById('listaFiados').innerHTML=fiadoList.map(x=>{
+    const c=x.c, atr=c.dataPrevista && c.dataPrevista<hojeS;
+    let tel=String(c.telefone||'').replace(/\D/g,''); if(tel.length<=11) tel='55'+tel;
+    return '<div class="item" style="flex-direction:column;align-items:stretch"><div><b>Cartela '+esc(x.n)+'</b> - '+esc(c.comprador)+' • '+moeda(c.valor)
+      +'<small>'+esc(c.telefone)+' • vendedor '+esc(c.vendedorNome)+' • Previsto: <span class="'+(atr?'atraso':'')+'">'+esc(fmtData(c.dataPrevista))+(atr?' (ATRASADO)':'')+'</span></small></div>'
+      +'<div><button class="b-ouro b-peq" onclick="receberFiado(\''+esc(x.n)+'\')">💰 Recebido</button>'
+      +'<button class="b-cinza b-peq" onclick="desistirFiado(\''+esc(x.n)+'\')">↩️ Desistência</button>'
+      +'<a class="b-azul b-peq" style="display:inline-block;text-decoration:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px" target="_blank" href="https://wa.me/'+tel+'">WhatsApp</a></div></div>';
+  }).join('') || '<div style="color:#9db4d8">Nenhum fiado pendente.</div>';
+  const dk=Object.keys(desistencias).filter(k=>desistencias[k]).sort((p,q)=>desistencias[q].desistiuEm-desistencias[p].desistiuEm).slice(0,20);
+  document.getElementById('listaDesist').innerHTML=dk.map(k=>{ const d=desistencias[k];
+    return '<div class="item"><div><b>Cartela '+esc(d.n)+'</b> - '+esc(d.comprador)+'<small>'+esc(d.telefone)+' • vendedor '+esc(d.vendedorNome)+' • previsto '+esc(fmtData(d.dataPrevista))+' • desistiu em '+new Date(d.desistiuEm).toLocaleDateString('pt-BR')+'</small></div><div>'+moeda(d.valor)+'</div></div>';
+  }).join('') || '<div style="color:#9db4d8">Nenhuma desistência.</div>';
   document.getElementById('rEntregues').textContent=entTotal;
   document.getElementById('rComVend').textContent=comTotal;
 
@@ -365,22 +468,28 @@ function desenhar(){
 
   const rank=ids.slice().sort((a,b)=>st[b].mes-st[a].mes||st[b].vend-st[a].vend);
   document.getElementById('tabela').innerHTML = rank.map(id=>{ const s=st[id];
-    return '<tr><td>'+esc(vendedores[id].nome)+'</td><td>'+s.ent+'</td><td>'+s.vend+'</td><td>'+s.dev+'</td><td>'+Math.max(0,s.ent-s.vend-s.dev)+'</td><td>'+s.hoje+'</td><td>'+s.sem+'</td><td>'+s.mes+'</td><td>'+moeda(s.valor)+'</td></tr>';
+    return '<tr><td>'+esc(vendedores[id].nome)+'</td><td>'+s.ent+'</td><td>'+s.vend+'</td><td>'+s.dev+'</td><td>'+Math.max(0,s.ent-s.vend-s.dev)+'</td><td>'+s.hoje+'</td><td>'+s.sem+'</td><td>'+s.mes+'</td><td>'+moeda(s.valor)+'</td><td>'+moeda(s.fiado)+'</td></tr>';
   }).join('');
 
+  const ck=Object.keys(conflitos).filter(k=>conflitos[k]);
+  document.getElementById('cardConflitos').style.display=ck.length?'block':'none';
+  document.getElementById('listaConflitos').innerHTML=ck.map(k=>{
+    const c=conflitos[k], o=cartelas[c.n]||{};
+    return '<div class="item"><div><b>Cartela '+esc(c.n)+'</b><small>Registro recusado: '+esc(c.comprador)+' • '+esc(c.telefone)+' • vendedor '+esc(c.vendedorNome)+'</small><small>Venda válida: '+esc(o.comprador||'-')+' • '+esc(o.telefone||'-')+' • vendedor '+esc(o.vendedorNome||'-')+'</small></div><div><button class="b-ouro b-peq" onclick="resolverConflito(\''+esc(k)+'\')">Resolvido</button></div></div>';
+  }).join('');
   vendas.sort((a,b)=>b.c.ts-a.c.ts);
   document.getElementById('feed').innerHTML = vendas.slice(0,30).map(x=>{
     const d=new Date(x.c.ts);
-    return '<div class="item"><div><b>Cartela '+esc(x.n)+'</b> - '+esc(x.c.comprador)+'<small>'+esc(x.c.telefone)+' • '+esc(x.c.vendedorNome)+' • '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</small></div>'
-      +'<div style="text-align:right">'+moeda(x.c.valor)+'<br><a href="#" style="color:#ff8a80;font-size:12px" onclick="estornar(\''+esc(x.n)+'\');return false">estornar</a></div></div>';
+    return '<div class="item"><div><b>Cartela '+esc(x.n)+'</b> - '+esc(x.c.comprador)+'<small>'+esc(x.c.telefone)+' • '+esc(x.c.vendedorNome)+' • <b>'+esc(x.c.pagamento||'sem forma')+(x.c.pagamento==='Fiado'?' (prev. '+esc(fmtData(x.c.dataPrevista))+')':'')+'</b> • '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</small></div>'
+      +'<div style="text-align:right">'+moeda(x.c.valor)+'<br><a href="#" style="color:#ffd24a;font-size:12px" onclick="alterarPagamento(\''+esc(x.n)+'\');return false">alterar pgto</a><br><a href="#" style="color:#ff8a80;font-size:12px" onclick="estornar(\''+esc(x.n)+'\');return false">estornar</a></div></div>';
   }).join('') || '<div style="color:#9db4d8">Nenhuma venda ainda.</div>';
 }
 
 function baixarCSV(){
-  const linhas=[['Cartela','Comprador','Telefone','Vendedor','Valor','Data/Hora']];
+  const linhas=[['Cartela','Comprador','Telefone','Vendedor','Valor','Pagamento','Data prevista (fiado)','Data/Hora']];
   Object.keys(cartelas).sort((a,b)=>a-b).forEach(n=>{
     const c=cartelas[n]; if(!c||c.status==='devolvida') return;
-    linhas.push([n,c.comprador,c.telefone,c.vendedorNome,String(c.valor).replace('.',','),new Date(c.ts).toLocaleString('pt-BR')]);
+    linhas.push([n,c.comprador,c.telefone,c.vendedorNome,String(c.valor).replace('.',','),c.pagamento||'',c.dataPrevista||'',new Date(c.ts).toLocaleString('pt-BR')]);
   });
   const csv='﻿'+linhas.map(l=>l.map(x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"').join(';')).join('\r\n');
   const a=document.createElement('a');

@@ -16,8 +16,8 @@ h1{font-size:20px;margin:6px 0 2px;color:#ffd24a;text-align:center}
 .card{background:#14305f;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 .card h2{margin:0 0 10px;font-size:16px;color:#ffd24a}
 label{display:block;font-size:13px;color:#9db4d8;margin:8px 0 4px}
-input{width:100%;padding:13px;font-size:17px;border-radius:10px;border:2px solid #2a4d8f;background:#0b1d3a;color:#fff}
-input:focus{outline:none;border-color:#ffd24a}
+input,select{width:100%;padding:13px;font-size:17px;border-radius:10px;border:2px solid #2a4d8f;background:#0b1d3a;color:#fff}
+input:focus,select:focus{outline:none;border-color:#ffd24a}
 button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;border-radius:10px;margin-top:10px;cursor:pointer}
 .b-ouro{background:#ffd24a;color:#1a1a1a}
 .b-azul{background:#2a6bd6;color:#fff}
@@ -33,12 +33,17 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
 .item:last-child{border-bottom:none}
 .item small{color:#9db4d8;display:block}
 .msg{padding:10px;border-radius:10px;margin-top:10px;font-size:14px;display:none}
-.ok{background:#1f7a3d}.erro{background:#a62b2b}
+.ok{background:#1f7a3d}.erro{background:#a62b2b}.aviso{background:#a66b00}
 .oculto{display:none}
 #modalScan{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;padding:14px}
 #modalScan video{width:100%;max-width:480px;border-radius:12px;background:#000}
 .topo{display:flex;justify-content:space-between;align-items:center}
 .topo button{width:auto;margin:0;padding:8px 14px;font-size:13px}
+#banner{border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:14px;display:none}
+#banner button{margin-top:8px;padding:10px;font-size:14px}
+.pend{display:inline-block;background:#a66b00;border-radius:6px;padding:2px 6px;font-size:11px;margin-left:6px}
+.atraso{color:#ff8a80;font-weight:bold}
+.btnx{width:auto;margin:4px 0 0;padding:4px 8px;font-size:11px;background:#a62b2b;color:#fff}
 </style>
 </head>
 <body>
@@ -55,6 +60,7 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     <input id="logPin" type="password" inputmode="numeric" placeholder="PIN do gerente">
     <button class="b-ouro" onclick="entrar()">ENTRAR</button>
     <div id="msgLogin" class="msg"></div>
+    <div style="font-size:12px;color:#9db4d8;margin-top:10px">O primeiro acesso do dia precisa de internet. Depois você pode vender sem sinal e sincronizar quando voltar a conexão.</div>
   </div>
 </div>
 
@@ -65,6 +71,8 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     <button class="b-cinza" onclick="sair()">Sair</button>
   </div>
   <div style="height:10px"></div>
+
+  <div id="banner"></div>
 
   <div class="card">
     <h2>Registrar venda</h2>
@@ -77,6 +85,13 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     <input id="vNome" type="text" autocomplete="off" placeholder="Nome completo">
     <label>Telefone do comprador (com DDD)</label>
     <input id="vTel" type="tel" inputmode="numeric" placeholder="(92) 99999-9999">
+    <label>Forma de pagamento</label>
+    <select id="vPag" onchange="mudouPag()"><option value="">Selecione...</option><option>Dinheiro</option><option>Pix</option><option>Cartão</option><option>Fiado</option></select>
+    <div id="boxPrev" class="oculto">
+      <label>Data prevista para o pagamento</label>
+      <input id="vPrev" type="date">
+      <div style="font-size:12px;color:#9db4d8;margin-top:4px">A cartela fica reservada no nome do comprador até o pagamento.</div>
+    </div>
     <div style="margin-top:10px;font-size:15px">Valor: <b id="vPreco" style="color:#ffd24a"></b></div>
     <button class="b-ouro" onclick="registrarVenda()">REGISTRAR VENDA</button>
     <div id="msgVenda" class="msg"></div>
@@ -99,8 +114,15 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
       <div class="kpi"><b id="tHoje">0</b><span>Hoje</span></div>
       <div class="kpi"><b id="tSem">0</b><span>Na semana</span></div>
       <div class="kpi"><b id="tMes">0</b><span>No mês</span></div>
-      <div class="kpi"><b id="tValor">R$ 0</b><span>Valor no mês</span></div>
+      <div class="kpi"><b id="tValor">R$ 0</b><span>Recebido no mês</span></div>
     </div>
+  </div>
+
+  <div class="card" id="cardFiado" style="display:none;border:2px solid #ffd24a">
+    <h2>🤝 Fiados a receber</h2>
+    <div id="totFiado" style="font-size:13px;color:#9db4d8;margin-bottom:6px"></div>
+    <div id="listaFiado"></div>
+    <div id="msgFiado" class="msg"></div>
   </div>
 
   <div class="card">
@@ -108,6 +130,16 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     <div id="listaHoje"><div style="color:#9db4d8;font-size:14px">Nenhuma venda hoje.</div></div>
   </div>
 </div>
+</div>
+
+<div id="modalForma" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:60;display:none;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#14305f;border-radius:14px;padding:16px;width:100%;max-width:340px">
+    <div style="font-size:16px;color:#ffd24a;margin-bottom:6px"><b>Como foi pago?</b></div>
+    <button class="b-ouro" onclick="formaEscolhida('Dinheiro')">💵 Dinheiro</button>
+    <button class="b-ouro" onclick="formaEscolhida('Pix')">⚡ Pix</button>
+    <button class="b-ouro" onclick="formaEscolhida('Cartão')">💳 Cartão</button>
+    <button class="b-cinza" onclick="formaEscolhida('')">Cancelar</button>
+  </div>
 </div>
 
 <!-- SCANNER -->
@@ -130,11 +162,18 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let eu = null;          // {id, nome, lotes:[{de,ate}]}
-let config = {evento:'', preco:0};
-let minhasCartelas = {}; // numero -> dados
-let escutando = false;
+const LS_FILA = 'jd_vendas_fila';
+const LS_CACHE = 'jd_vendas_cache';
 
+let eu = null;           // {id, nome, lotes:[{de,ate}]}
+let config = {evento:'', preco:0};
+let minhasCartelas = {}; // numero -> dados (vindo do servidor)
+let escutando = false;
+let sincronizando = false;
+let fila = lsGet(LS_FILA, []); // vendas feitas e ainda não enviadas
+
+function lsGet(k, def){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function norm(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); }
 function moeda(v){ return 'R$ '+(Number(v)||0).toFixed(2).replace('.',','); }
@@ -146,44 +185,70 @@ async function hashPin(id,pin){
 }
 function mostrar(id,txt,tipo){
   const el=document.getElementById(id); el.textContent=txt; el.className='msg '+tipo; el.style.display='block';
-  clearTimeout(el._t); el._t=setTimeout(()=>{el.style.display='none'},6000);
+  clearTimeout(el._t); el._t=setTimeout(()=>{el.style.display='none'},8000);
+}
+function comTempo(promessa, ms){
+  return new Promise((ok,erro)=>{
+    const t=setTimeout(()=>erro(new Error('tempo')),ms);
+    promessa.then(v=>{clearTimeout(t);ok(v);},e=>{clearTimeout(t);erro(e);});
+  });
 }
 function inicioDia(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); }
 function inicioSemana(){ const d=new Date(); d.setHours(0,0,0,0); const dia=d.getDay(); d.setDate(d.getDate()-(dia===0?6:dia-1)); return d.getTime(); }
 function inicioMes(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(1); return d.getTime(); }
+
+/* ---------- FILA OFFLINE ---------- */
+function minhaFila(){ return eu ? fila.filter(i=>i.dados && i.dados.vendedorId===eu.id) : []; }
+function salvarFila(){ lsSet(LS_FILA, fila); }
 
 /* ---------- LOGIN ---------- */
 async function entrar(){
   const nome = norm(document.getElementById('logNome').value);
   const pin = document.getElementById('logPin').value.trim();
   if(!nome || !pin){ mostrar('msgLogin','Digite nome e PIN.','erro'); return; }
+  let todos;
   try{
-    const snap = await db.ref('equipeVendas/vendedores').once('value');
-    const todos = snap.val()||{};
-    for(const id in todos){
-      const v = todos[id];
-      if(!v || v.ativo===false) continue;
-      if(norm(v.nome)!==nome) continue;
-      const h = await hashPin(id,pin);
-      if(h===v.pinHash){
-        localStorage.setItem('jd_vendas_id',id);
-        iniciar(id);
-        return;
-      }
+    const snap = await comTempo(db.ref('equipeVendas/vendedores').once('value'), 12000);
+    todos = snap.val()||{};
+  }catch(e){
+    mostrar('msgLogin','Sem conexão com a internet. O primeiro acesso do dia precisa de sinal.','erro');
+    return;
+  }
+  for(const id in todos){
+    const v = todos[id];
+    if(!v || v.ativo===false) continue;
+    if(norm(v.nome)!==nome) continue;
+    const h = await hashPin(id,pin);
+    if(h===v.pinHash){
+      try{ localStorage.setItem('jd_vendas_id',id); }catch(e){}
+      iniciar(id);
+      return;
     }
-    mostrar('msgLogin','Nome ou PIN incorreto.','erro');
-  }catch(e){ mostrar('msgLogin','Erro de conexão. Tente de novo.','erro'); }
+  }
+  mostrar('msgLogin','Nome ou PIN incorreto.','erro');
 }
 function sair(){
-  localStorage.removeItem('jd_vendas_id');
+  if(eu && minhaFila().length){
+    if(!confirm('Você tem '+minhaFila().length+' venda(s) ainda não enviada(s). Elas continuam salvas neste celular e serão enviadas quando você entrar de novo com internet. Sair mesmo assim?')) return;
+  }
+  try{ localStorage.removeItem('jd_vendas_id'); }catch(e){}
   location.reload();
 }
 async function restaurarSessao(){
   let id=null;
   try{ id=localStorage.getItem('jd_vendas_id'); }catch(e){}
   if(!id) return;
+  const ca = lsGet(LS_CACHE, null);
+  if(ca && ca.id===id){
+    // abre direto com os dados guardados (funciona sem internet)
+    eu = {id:ca.id, nome:ca.nome, lotes:ca.lotes||[]};
+    config = ca.config||config;
+    minhasCartelas = ca.cartelas||{};
+    iniciar(id);
+    return;
+  }
   try{
-    const s = await db.ref('equipeVendas/vendedores/'+id).once('value');
+    const s = await comTempo(db.ref('equipeVendas/vendedores/'+id).once('value'), 12000);
     if(s.exists() && s.val().ativo!==false) iniciar(id);
   }catch(e){}
 }
@@ -191,27 +256,27 @@ async function restaurarSessao(){
 function iniciar(id){
   document.getElementById('telaLogin').classList.add('oculto');
   document.getElementById('telaApp').classList.remove('oculto');
+  desenhar();
   if(escutando) return; escutando=true;
   db.ref('equipeVendas/vendedores/'+id).on('value',s=>{
     const v=s.val();
-    if(!v){ sair(); return; }
+    if(!v || v.ativo===false){ sair(); return; }
     const lotes = [];
     const l = v.lotes||{};
     Object.keys(l).forEach(k=>{ if(l[k]) lotes.push({de:Number(l[k].de),ate:Number(l[k].ate)}); });
     lotes.sort((a,b)=>a.de-b.de);
     eu = {id:id, nome:v.nome, lotes:lotes};
-    document.getElementById('olaNome').textContent = 'Olá, '+v.nome;
     desenhar();
   });
   db.ref('equipeVendas/config').on('value',s=>{
     config = s.val()||{evento:'',preco:0};
-    document.getElementById('nomeEvento').textContent = config.evento||'';
-    document.getElementById('vPreco').textContent = moeda(config.preco);
+    desenhar();
   });
   db.ref('equipeVendas/cartelas').orderByChild('vendedorId').equalTo(id).on('value',s=>{
     minhasCartelas = s.val()||{};
     desenhar();
   });
+  sincronizar();
 }
 
 function estaNoMeuLote(n){
@@ -222,19 +287,31 @@ function estaNoMeuLote(n){
 /* ---------- PAINEL ---------- */
 function desenhar(){
   if(!eu) return;
+  // guarda uma cópia para uso sem internet
+  lsSet(LS_CACHE, {id:eu.id, nome:eu.nome, lotes:eu.lotes, config:config, cartelas:minhasCartelas});
+
+  document.getElementById('olaNome').textContent = 'Olá, '+eu.nome;
+  document.getElementById('nomeEvento').textContent = config.evento||'';
+  document.getElementById('vPreco').textContent = moeda(config.preco);
+
+  // junta o que já está no servidor com o que está aguardando envio
+  const todas = Object.assign({}, minhasCartelas);
+  const pendentes = minhaFila();
+  pendentes.forEach(p=>{ todas[p.n] = Object.assign({}, p.dados, {pendente:true}); });
+
   let rec=0; eu.lotes.forEach(l=>{ rec += (l.ate-l.de+1); });
   let vend=0, dev=0, hoje=0, sem=0, mes=0, valorMes=0;
   const iDia=inicioDia(), iSem=inicioSemana(), iMes=inicioMes();
   const listaHoje=[];
-  Object.keys(minhasCartelas).forEach(n=>{
-    const c=minhasCartelas[n];
+  Object.keys(todas).forEach(n=>{
+    const c=todas[n];
     if(!c) return;
     if(c.status==='devolvida'){ dev++; return; }
     vend++;
     const t=c.ts||0;
     if(t>=iDia){ hoje++; listaHoje.push({n:n,c:c}); }
     if(t>=iSem) sem++;
-    if(t>=iMes){ mes++; valorMes += Number(c.valor)||0; }
+    if(t>=iMes){ mes++; if(c.pagamento!=='Fiado') valorMes += Number(c.valor)||0; }
   });
   document.getElementById('kRec').textContent=rec;
   document.getElementById('kVend').textContent=vend;
@@ -249,11 +326,53 @@ function desenhar(){
     : 'Nenhum lote entregue a você ainda.';
   listaHoje.sort((a,b)=>b.c.ts-a.c.ts);
   document.getElementById('listaHoje').innerHTML = listaHoje.length
-    ? listaHoje.map(x=>'<div class="item"><div><b>Cartela '+esc(x.n)+'</b><small>'+esc(x.c.comprador)+' • '+esc(x.c.telefone)+'</small></div><div>'+moeda(x.c.valor)+'</div></div>').join('')
+    ? listaHoje.map(x=>'<div class="item"><div><b>Cartela '+esc(x.n)+'</b>'+(x.c.pendente?'<span class="pend">⏳ não enviada</span>':'')+'<small>'+esc(x.c.comprador)+' • '+esc(x.c.telefone)+' • '+esc(x.c.pagamento||'-')+(x.c.pagamento==='Fiado'?' (prev. '+esc(fmtData(x.c.dataPrevista))+')':'')+'</small>'
+        +(x.c.pendente?'<button class="btnx" onclick="cancelarPendente(\''+esc(x.n)+'\')">Cancelar esta venda</button>':'')
+        +'</div><div>'+moeda(x.c.valor)+'</div></div>').join('')
     : '<div style="color:#9db4d8;font-size:14px">Nenhuma venda hoje.</div>';
+  const fi=Object.keys(minhasCartelas).filter(n=>{ const c=minhasCartelas[n]; return c && c.status!=='devolvida' && c.pagamento==='Fiado'; })
+    .sort((a,b)=>(minhasCartelas[a].dataPrevista||'9').localeCompare(minhasCartelas[b].dataPrevista||'9'));
+  let totF=0; fi.forEach(n=>{ totF+=Number(minhasCartelas[n].valor)||0; });
+  document.getElementById('cardFiado').style.display = fi.length?'block':'none';
+  document.getElementById('totFiado').textContent = fi.length+' cartela(s) reservada(s) • '+moeda(totF)+' a receber';
+  document.getElementById('listaFiado').innerHTML = fi.map(n=>{
+    const c=minhasCartelas[n]; const atr=c.dataPrevista && c.dataPrevista<hojeStr();
+    return '<div class="item" style="flex-direction:column;align-items:stretch"><div><b>Cartela '+esc(n)+'</b> • '+esc(c.comprador)
+      +'<small>'+esc(c.telefone)+' • Previsto: <span class="'+(atr?'atraso':'')+'">'+esc(fmtData(c.dataPrevista))+(atr?' (ATRASADO)':'')+'</span></small></div>'
+      +'<div class="linha"><button class="b-ouro" style="margin-top:6px;padding:10px;font-size:14px" onclick="receberFiado(\''+esc(n)+'\')">💰 Recebi</button>'
+      +'<button class="b-cinza" style="margin-top:6px;padding:10px;font-size:14px" onclick="desistirFiado(\''+esc(n)+'\')">↩️ Desistiu</button></div></div>';
+  }).join('');
+  atualizarBanner();
+}
+
+function atualizarBanner(){
+  const b=document.getElementById('banner');
+  const q=minhaFila().length;
+  const on=navigator.onLine;
+  if(!q && on){ b.style.display='none'; return; }
+  b.style.display='block';
+  if(q){
+    b.style.background='#a66b00';
+    b.innerHTML='⏳ <b>'+q+' venda(s) aguardando envio</b>'+(on?'':' — sem internet agora. Elas ficam salvas no celular.')
+      +(on?'<button class="b-ouro" onclick="sincronizar(true)">Sincronizar agora</button>':'');
+  }else{
+    b.style.background='#3a4a66';
+    b.innerHTML='📴 Sem internet. Você pode continuar vendendo; as vendas serão enviadas quando o sinal voltar.';
+  }
+}
+
+function cancelarPendente(n){
+  if(!confirm('Cancelar a venda da cartela '+n+'? Ela ainda não foi enviada.')) return;
+  fila = fila.filter(i=>!(eu && i.dados.vendedorId===eu.id && String(i.n)===String(n)));
+  salvarFila(); desenhar();
 }
 
 /* ---------- VENDA ---------- */
+function jaVendida(n){
+  if(minhaFila().some(i=>Number(i.n)===n)) return true;
+  const c=minhasCartelas[n];
+  return !!(c && c.status!=='devolvida');
+}
 async function registrarVenda(){
   if(!eu){ return; }
   const n = parseInt(somenteNum(document.getElementById('vNum').value),10);
@@ -261,28 +380,148 @@ async function registrarVenda(){
   const tel = somenteNum(document.getElementById('vTel').value);
   if(!n){ mostrar('msgVenda','Informe o número da cartela.','erro'); return; }
   if(!estaNoMeuLote(n)){ mostrar('msgVenda','A cartela '+n+' não está nos seus lotes.','erro'); return; }
+  if(jaVendida(n)){ mostrar('msgVenda','A cartela '+n+' já foi registrada por você.','erro'); return; }
   if(nome.length<2){ mostrar('msgVenda','Informe o nome do comprador.','erro'); return; }
   if(tel.length<10 || tel.length>13){ mostrar('msgVenda','Telefone inválido. Use DDD + número.','erro'); return; }
+  const pag = document.getElementById('vPag').value;
+  if(!pag){ mostrar('msgVenda','Escolha a forma de pagamento.','erro'); return; }
+  const prev = document.getElementById('vPrev').value;
+  if(pag==='Fiado'){
+    if(!prev){ mostrar('msgVenda','Informe a data prevista para o pagamento.','erro'); return; }
+    if(prev<hojeStr()){ mostrar('msgVenda','A data prevista não pode ser no passado.','erro'); return; }
+  }
   if(!confirm('Confirmar venda da cartela '+n+' para '+nome+' por '+moeda(config.preco)+'?')) return;
   const dados = {
     vendedorId:eu.id, vendedorNome:eu.nome, comprador:nome, telefone:tel,
-    valor:Number(config.preco)||0, ts:Date.now(), status:'vendida'
+    valor:Number(config.preco)||0, pagamento:pag, ts:Date.now(), status:'vendida'
   };
-  try{
-    const res = await db.ref('equipeVendas/cartelas/'+n).transaction(atual=>{
-      if(atual===null || (atual && atual.status==='devolvida')) return dados;
-      return; // aborta: já vendida
-    });
-    if(res.committed){
-      mostrar('msgVenda','✅ Cartela '+n+' registrada!','ok');
-      document.getElementById('vNum').value='';
-      document.getElementById('vNome').value='';
-      document.getElementById('vTel').value='';
-    }else{
-      mostrar('msgVenda','Essa cartela já foi vendida.','erro');
-    }
-  }catch(e){ mostrar('msgVenda','Erro ao gravar. Verifique a internet.','erro'); }
+  if(pag==='Fiado') dados.dataPrevista=prev;
+  fila.push({n:n, dados:dados});
+  salvarFila();
+  document.getElementById('vNum').value='';
+  document.getElementById('vNome').value='';
+  document.getElementById('vTel').value='';
+  document.getElementById('vPag').value='';
+  document.getElementById('vPrev').value='';
+  mudouPag();
+  desenhar();
+  if(!navigator.onLine){
+    mostrar('msgVenda','📴 Sem internet: venda da cartela '+n+' salva no celular. Será enviada quando o sinal voltar.','aviso');
+    return;
+  }
+  const r = await sincronizar();
+  const ainda = minhaFila().some(i=>Number(i.n)===n);
+  if(r && r.conflitos && r.conflitos.indexOf(n)>=0){
+    mostrar('msgVenda','⚠️ A cartela '+n+' já estava vendida por outra pessoa. Avise o gerente.','erro');
+  }else if(ainda){
+    mostrar('msgVenda','Venda da cartela '+n+' salva no celular. Será enviada quando a conexão melhorar.','aviso');
+  }else{
+    mostrar('msgVenda','✅ Cartela '+n+' registrada!','ok');
+  }
 }
+
+
+/* ---------- FIADO ---------- */
+function hojeStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtData(s){ if(!s) return 'sem data'; const p=String(s).split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : s; }
+function escolherForma(cb){ const m=document.getElementById('modalForma'); m._cb=cb; m.style.display='flex'; }
+function formaEscolhida(f){ const m=document.getElementById('modalForma'); m.style.display='none'; const cb=m._cb; m._cb=null; if(f && cb) cb(f); }
+
+function mudouPag(){
+  const f=document.getElementById('vPag').value==='Fiado';
+  document.getElementById('boxPrev').classList.toggle('oculto',!f);
+  if(f) document.getElementById('vPrev').min=hojeStr();
+}
+function receberFiado(n){
+  if(!navigator.onLine){ alert('Precisa de internet para registrar o recebimento.'); return; }
+  escolherForma(async f=>{
+    try{
+      const ref=db.ref('equipeVendas/cartelas/'+n);
+      const a=(await comTempo(ref.once('value'),12000)).val();
+      if(!a || a.vendedorId!==eu.id || a.pagamento!=='Fiado'){ mostrar('msgFiado','Essa cartela não está mais como fiado.','erro'); return; }
+      await comTempo(ref.update({pagamento:f, pagoEm:Date.now(), eraFiado:true}),12000);
+      mostrar('msgFiado','✅ Cartela '+n+' recebida ('+f+').','ok');
+    }catch(e){ mostrar('msgFiado','Sem conexão. Tente de novo com sinal.','erro'); }
+  });
+}
+async function desistirFiado(n){
+  if(!navigator.onLine){ alert('Precisa de internet para registrar a desistência.'); return; }
+  if(!confirm('O comprador desistiu da cartela '+n+'? Ela volta a ficar disponível com você para vender de novo.')) return;
+  try{
+    const ref=db.ref('equipeVendas/cartelas/'+n);
+    const a=(await comTempo(ref.once('value'),12000)).val();
+    if(!a || a.vendedorId!==eu.id || a.pagamento!=='Fiado'){ mostrar('msgFiado','Essa cartela não está mais como fiado.','erro'); return; }
+    const chave=db.ref('equipeVendas/desistencias').push().key;
+    const upd={};
+    upd['equipeVendas/cartelas/'+n]=null;
+    upd['equipeVendas/desistencias/'+chave]={n:Number(n), vendedorId:a.vendedorId, vendedorNome:a.vendedorNome, comprador:a.comprador, telefone:a.telefone, valor:a.valor, dataPrevista:a.dataPrevista||'', ts:a.ts, desistiuEm:Date.now()};
+    await comTempo(db.ref().update(upd),12000);
+    mostrar('msgFiado','Cartela '+n+' liberada novamente.','ok');
+  }catch(e){ mostrar('msgFiado','Sem conexão. Tente de novo com sinal.','erro'); }
+}
+
+/* ---------- SINCRONIZAÇÃO ---------- */
+function enviarItem(item){
+  return new Promise(resolve=>{
+    let fim=false;
+    const t=setTimeout(()=>{ if(!fim){ fim=true; resolve('falha'); } },12000);
+    db.ref('equipeVendas/cartelas/'+item.n).transaction(atual=>{
+      if(atual===null || (atual && atual.status==='devolvida')) return item.dados;
+      // se foi este mesmo envio que já chegou antes, conta como sucesso
+      if(atual && atual.vendedorId===item.dados.vendedorId && atual.ts===item.dados.ts) return atual;
+      return; // já vendida por outro: aborta
+    }).then(r=>{
+      if(fim) return; fim=true; clearTimeout(t);
+      resolve(r.committed?'ok':'conflito');
+    }).catch(()=>{
+      if(fim) return; fim=true; clearTimeout(t);
+      resolve('falha');
+    });
+  });
+}
+async function sincronizar(manual){
+  if(sincronizando || !eu) return {enviadas:0, conflitos:[]};
+  if(!navigator.onLine){ if(manual) alert('Sem internet no momento.'); return {enviadas:0, conflitos:[]}; }
+  sincronizando=true;
+  const r={enviadas:0, conflitos:[]};
+  try{
+    const lista = minhaFila().slice();
+    for(const item of lista){
+      const res = await enviarItem(item);
+      if(res==='ok'){
+        fila = fila.filter(i=>i!==item); r.enviadas++;
+      }else if(res==='conflito'){
+        fila = fila.filter(i=>i!==item); r.conflitos.push(Number(item.n));
+        try{
+          await comTempo(db.ref('equipeVendas/conflitos').push({
+            n:Number(item.n), vendedorId:item.dados.vendedorId, vendedorNome:item.dados.vendedorNome,
+            comprador:item.dados.comprador, telefone:item.dados.telefone, valor:item.dados.valor, pagamento:item.dados.pagamento||'', dataPrevista:item.dados.dataPrevista||'',
+            ts:item.dados.ts, registradoEm:Date.now()
+          }), 8000);
+        }catch(e){}
+      }else{
+        break; // sem conexão: tenta depois
+      }
+      salvarFila();
+    }
+  }finally{
+    sincronizando=false;
+    salvarFila();
+    desenhar();
+  }
+  if(r.conflitos.length && !arguments[1]){
+    // aviso extra quando houve conflito em envio automático ou manual
+    setTimeout(()=>alert('Atenção: a(s) cartela(s) '+r.conflitos.join(', ')+' já constavam como vendidas por outra pessoa. O gerente foi avisado. Confira com o comprador.'),100);
+  }
+  if(manual){
+    if(!minhaFila().length) mostrar('msgVenda','✅ Tudo sincronizado ('+r.enviadas+' enviada(s)).','ok');
+    else mostrar('msgVenda','Ainda restam '+minhaFila().length+' venda(s) por enviar. Tente de novo com sinal melhor.','aviso');
+  }
+  return r;
+}
+window.addEventListener('online', ()=>{ atualizarBanner(); sincronizar(); });
+window.addEventListener('offline', atualizarBanner);
+setInterval(()=>{ if(eu && minhaFila().length && navigator.onLine) sincronizar(); }, 30000);
 
 /* ---------- SCANNER ---------- */
 let stream=null, scanAtivo=false, detector=null;
