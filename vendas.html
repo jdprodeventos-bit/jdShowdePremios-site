@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#0b1d3a">
+<title>JD Vendas - Vendedor</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#0b1d3a;color:#fff;min-height:100vh}
+.wrap{max-width:480px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:6px 0 2px;color:#ffd24a;text-align:center}
+.sub{text-align:center;font-size:13px;color:#9db4d8;margin-bottom:14px}
+.card{background:#14305f;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.card h2{margin:0 0 10px;font-size:16px;color:#ffd24a}
+label{display:block;font-size:13px;color:#9db4d8;margin:8px 0 4px}
+input{width:100%;padding:13px;font-size:17px;border-radius:10px;border:2px solid #2a4d8f;background:#0b1d3a;color:#fff}
+input:focus{outline:none;border-color:#ffd24a}
+button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;border-radius:10px;margin-top:10px;cursor:pointer}
+.b-ouro{background:#ffd24a;color:#1a1a1a}
+.b-azul{background:#2a6bd6;color:#fff}
+.b-cinza{background:#3a4a66;color:#fff}
+.linha{display:flex;gap:8px}
+.linha>*{flex:1}
+.linha .peq{flex:0 0 130px}
+.grade{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi{background:#0b1d3a;border-radius:10px;padding:10px;text-align:center}
+.kpi b{display:block;font-size:22px;color:#ffd24a}
+.kpi span{font-size:12px;color:#9db4d8}
+.item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #264a86;font-size:14px}
+.item:last-child{border-bottom:none}
+.item small{color:#9db4d8;display:block}
+.msg{padding:10px;border-radius:10px;margin-top:10px;font-size:14px;display:none}
+.ok{background:#1f7a3d}.erro{background:#a62b2b}
+.oculto{display:none}
+#modalScan{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;padding:14px}
+#modalScan video{width:100%;max-width:480px;border-radius:12px;background:#000}
+.topo{display:flex;justify-content:space-between;align-items:center}
+.topo button{width:auto;margin:0;padding:8px 14px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- LOGIN -->
+<div id="telaLogin">
+  <h1>🎟️ JD VENDAS</h1>
+  <div class="sub">Equipe de vendas - Bingo presencial</div>
+  <div class="card">
+    <label>Seu nome</label>
+    <input id="logNome" type="text" autocomplete="off" placeholder="Ex.: Maria">
+    <label>PIN</label>
+    <input id="logPin" type="password" inputmode="numeric" placeholder="PIN do gerente">
+    <button class="b-ouro" onclick="entrar()">ENTRAR</button>
+    <div id="msgLogin" class="msg"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="telaApp" class="oculto">
+  <div class="topo">
+    <div><h1 style="text-align:left;margin:0" id="olaNome">Olá</h1><div class="sub" style="text-align:left;margin:0" id="nomeEvento"></div></div>
+    <button class="b-cinza" onclick="sair()">Sair</button>
+  </div>
+  <div style="height:10px"></div>
+
+  <div class="card">
+    <h2>Registrar venda</h2>
+    <label>Número da cartela</label>
+    <div class="linha">
+      <input id="vNum" type="text" inputmode="numeric" placeholder="Número">
+      <button class="b-azul peq" style="margin:0" onclick="abrirScanner()">📷 Escanear</button>
+    </div>
+    <label>Nome do comprador</label>
+    <input id="vNome" type="text" autocomplete="off" placeholder="Nome completo">
+    <label>Telefone do comprador (com DDD)</label>
+    <input id="vTel" type="tel" inputmode="numeric" placeholder="(92) 99999-9999">
+    <div style="margin-top:10px;font-size:15px">Valor: <b id="vPreco" style="color:#ffd24a"></b></div>
+    <button class="b-ouro" onclick="registrarVenda()">REGISTRAR VENDA</button>
+    <div id="msgVenda" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Minhas cartelas</h2>
+    <div class="grade">
+      <div class="kpi"><b id="kRec">0</b><span>Recebidas</span></div>
+      <div class="kpi"><b id="kVend">0</b><span>Vendidas</span></div>
+      <div class="kpi"><b id="kDev">0</b><span>Devolvidas</span></div>
+      <div class="kpi"><b id="kCom">0</b><span>Comigo</span></div>
+    </div>
+    <div id="listaLotes" style="margin-top:10px;font-size:13px;color:#9db4d8"></div>
+  </div>
+
+  <div class="card">
+    <h2>Minhas vendas</h2>
+    <div class="grade">
+      <div class="kpi"><b id="tHoje">0</b><span>Hoje</span></div>
+      <div class="kpi"><b id="tSem">0</b><span>Na semana</span></div>
+      <div class="kpi"><b id="tMes">0</b><span>No mês</span></div>
+      <div class="kpi"><b id="tValor">R$ 0</b><span>Valor no mês</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Vendas de hoje</h2>
+    <div id="listaHoje"><div style="color:#9db4d8;font-size:14px">Nenhuma venda hoje.</div></div>
+  </div>
+</div>
+</div>
+
+<!-- SCANNER -->
+<div id="modalScan">
+  <video id="video" playsinline muted></video>
+  <div id="scanInfo" style="margin:10px;font-size:14px;color:#ffd24a;text-align:center">Aponte para o código de barras da cartela</div>
+  <button class="b-cinza" style="max-width:480px" onclick="fecharScanner()">Cancelar</button>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCLC7C8mGgoWZUGGARH-D_5KhVAb81a9xY",
+  authDomain: "jd-show-premios-novo.firebaseapp.com",
+  databaseURL: "https://jd-show-premios-novo-default-rtdb.firebaseio.com",
+  projectId: "jd-show-premios-novo",
+  storageBucket: "jd-show-premios-novo.firebasestorage.app",
+  messagingSenderId: "1013416322561",
+  appId: "1:1013416322561:web:a7d072caf168c5d1ad4200"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let eu = null;          // {id, nome, lotes:[{de,ate}]}
+let config = {evento:'', preco:0};
+let minhasCartelas = {}; // numero -> dados
+let escutando = false;
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function norm(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); }
+function moeda(v){ return 'R$ '+(Number(v)||0).toFixed(2).replace('.',','); }
+function somenteNum(s){ return String(s||'').replace(/\D/g,''); }
+async function hashPin(id,pin){
+  const buf = new TextEncoder().encode(id+':'+pin);
+  const h = await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function mostrar(id,txt,tipo){
+  const el=document.getElementById(id); el.textContent=txt; el.className='msg '+tipo; el.style.display='block';
+  clearTimeout(el._t); el._t=setTimeout(()=>{el.style.display='none'},6000);
+}
+function inicioDia(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); }
+function inicioSemana(){ const d=new Date(); d.setHours(0,0,0,0); const dia=d.getDay(); d.setDate(d.getDate()-(dia===0?6:dia-1)); return d.getTime(); }
+function inicioMes(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(1); return d.getTime(); }
+
+/* ---------- LOGIN ---------- */
+async function entrar(){
+  const nome = norm(document.getElementById('logNome').value);
+  const pin = document.getElementById('logPin').value.trim();
+  if(!nome || !pin){ mostrar('msgLogin','Digite nome e PIN.','erro'); return; }
+  try{
+    const snap = await db.ref('equipeVendas/vendedores').once('value');
+    const todos = snap.val()||{};
+    for(const id in todos){
+      const v = todos[id];
+      if(!v || v.ativo===false) continue;
+      if(norm(v.nome)!==nome) continue;
+      const h = await hashPin(id,pin);
+      if(h===v.pinHash){
+        localStorage.setItem('jd_vendas_id',id);
+        iniciar(id);
+        return;
+      }
+    }
+    mostrar('msgLogin','Nome ou PIN incorreto.','erro');
+  }catch(e){ mostrar('msgLogin','Erro de conexão. Tente de novo.','erro'); }
+}
+function sair(){
+  localStorage.removeItem('jd_vendas_id');
+  location.reload();
+}
+async function restaurarSessao(){
+  let id=null;
+  try{ id=localStorage.getItem('jd_vendas_id'); }catch(e){}
+  if(!id) return;
+  try{
+    const s = await db.ref('equipeVendas/vendedores/'+id).once('value');
+    if(s.exists() && s.val().ativo!==false) iniciar(id);
+  }catch(e){}
+}
+
+function iniciar(id){
+  document.getElementById('telaLogin').classList.add('oculto');
+  document.getElementById('telaApp').classList.remove('oculto');
+  if(escutando) return; escutando=true;
+  db.ref('equipeVendas/vendedores/'+id).on('value',s=>{
+    const v=s.val();
+    if(!v){ sair(); return; }
+    const lotes = [];
+    const l = v.lotes||{};
+    Object.keys(l).forEach(k=>{ if(l[k]) lotes.push({de:Number(l[k].de),ate:Number(l[k].ate)}); });
+    lotes.sort((a,b)=>a.de-b.de);
+    eu = {id:id, nome:v.nome, lotes:lotes};
+    document.getElementById('olaNome').textContent = 'Olá, '+v.nome;
+    desenhar();
+  });
+  db.ref('equipeVendas/config').on('value',s=>{
+    config = s.val()||{evento:'',preco:0};
+    document.getElementById('nomeEvento').textContent = config.evento||'';
+    document.getElementById('vPreco').textContent = moeda(config.preco);
+  });
+  db.ref('equipeVendas/cartelas').orderByChild('vendedorId').equalTo(id).on('value',s=>{
+    minhasCartelas = s.val()||{};
+    desenhar();
+  });
+}
+
+function estaNoMeuLote(n){
+  if(!eu) return false;
+  return eu.lotes.some(l=>n>=l.de && n<=l.ate);
+}
+
+/* ---------- PAINEL ---------- */
+function desenhar(){
+  if(!eu) return;
+  let rec=0; eu.lotes.forEach(l=>{ rec += (l.ate-l.de+1); });
+  let vend=0, dev=0, hoje=0, sem=0, mes=0, valorMes=0;
+  const iDia=inicioDia(), iSem=inicioSemana(), iMes=inicioMes();
+  const listaHoje=[];
+  Object.keys(minhasCartelas).forEach(n=>{
+    const c=minhasCartelas[n];
+    if(!c) return;
+    if(c.status==='devolvida'){ dev++; return; }
+    vend++;
+    const t=c.ts||0;
+    if(t>=iDia){ hoje++; listaHoje.push({n:n,c:c}); }
+    if(t>=iSem) sem++;
+    if(t>=iMes){ mes++; valorMes += Number(c.valor)||0; }
+  });
+  document.getElementById('kRec').textContent=rec;
+  document.getElementById('kVend').textContent=vend;
+  document.getElementById('kDev').textContent=dev;
+  document.getElementById('kCom').textContent=Math.max(0,rec-vend-dev);
+  document.getElementById('tHoje').textContent=hoje;
+  document.getElementById('tSem').textContent=sem;
+  document.getElementById('tMes').textContent=mes;
+  document.getElementById('tValor').textContent=moeda(valorMes);
+  document.getElementById('listaLotes').innerHTML = eu.lotes.length
+    ? 'Lotes: '+eu.lotes.map(l=>esc(l.de)+' a '+esc(l.ate)).join(' • ')
+    : 'Nenhum lote entregue a você ainda.';
+  listaHoje.sort((a,b)=>b.c.ts-a.c.ts);
+  document.getElementById('listaHoje').innerHTML = listaHoje.length
+    ? listaHoje.map(x=>'<div class="item"><div><b>Cartela '+esc(x.n)+'</b><small>'+esc(x.c.comprador)+' • '+esc(x.c.telefone)+'</small></div><div>'+moeda(x.c.valor)+'</div></div>').join('')
+    : '<div style="color:#9db4d8;font-size:14px">Nenhuma venda hoje.</div>';
+}
+
+/* ---------- VENDA ---------- */
+async function registrarVenda(){
+  if(!eu){ return; }
+  const n = parseInt(somenteNum(document.getElementById('vNum').value),10);
+  const nome = document.getElementById('vNome').value.trim();
+  const tel = somenteNum(document.getElementById('vTel').value);
+  if(!n){ mostrar('msgVenda','Informe o número da cartela.','erro'); return; }
+  if(!estaNoMeuLote(n)){ mostrar('msgVenda','A cartela '+n+' não está nos seus lotes.','erro'); return; }
+  if(nome.length<2){ mostrar('msgVenda','Informe o nome do comprador.','erro'); return; }
+  if(tel.length<10 || tel.length>13){ mostrar('msgVenda','Telefone inválido. Use DDD + número.','erro'); return; }
+  if(!confirm('Confirmar venda da cartela '+n+' para '+nome+' por '+moeda(config.preco)+'?')) return;
+  const dados = {
+    vendedorId:eu.id, vendedorNome:eu.nome, comprador:nome, telefone:tel,
+    valor:Number(config.preco)||0, ts:Date.now(), status:'vendida'
+  };
+  try{
+    const res = await db.ref('equipeVendas/cartelas/'+n).transaction(atual=>{
+      if(atual===null || (atual && atual.status==='devolvida')) return dados;
+      return; // aborta: já vendida
+    });
+    if(res.committed){
+      mostrar('msgVenda','✅ Cartela '+n+' registrada!','ok');
+      document.getElementById('vNum').value='';
+      document.getElementById('vNome').value='';
+      document.getElementById('vTel').value='';
+    }else{
+      mostrar('msgVenda','Essa cartela já foi vendida.','erro');
+    }
+  }catch(e){ mostrar('msgVenda','Erro ao gravar. Verifique a internet.','erro'); }
+}
+
+/* ---------- SCANNER ---------- */
+let stream=null, scanAtivo=false, detector=null;
+function candidatos(txt){
+  const d = somenteNum(txt);
+  const lista = [];
+  if(d){
+    lista.push(parseInt(d,10));
+    for(let k=3;k<=7;k++){ if(d.length>k) lista.push(parseInt(d.slice(-k),10)); }
+  }
+  return lista;
+}
+async function abrirScanner(){
+  if(!('BarcodeDetector' in window)){
+    alert('Seu navegador não lê código de barras. Use o Chrome atualizado ou digite o número da cartela.');
+    return;
+  }
+  try{
+    detector = new BarcodeDetector();
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    const v=document.getElementById('video');
+    v.srcObject=stream; await v.play();
+    document.getElementById('modalScan').style.display='flex';
+    scanAtivo=true; ler();
+  }catch(e){
+    alert('Não foi possível abrir a câmera. Permita o acesso à câmera ou digite o número.');
+    fecharScanner();
+  }
+}
+async function ler(){
+  if(!scanAtivo) return;
+  try{
+    const v=document.getElementById('video');
+    const codes = await detector.detect(v);
+    for(const c of codes){
+      const cand = candidatos(c.rawValue);
+      const achou = cand.find(n=>estaNoMeuLote(n));
+      if(achou){
+        document.getElementById('vNum').value=achou;
+        if(navigator.vibrate) navigator.vibrate(150);
+        fecharScanner();
+        document.getElementById('vNome').focus();
+        return;
+      } else if(cand.length){
+        document.getElementById('scanInfo').textContent='Lido: '+c.rawValue+' (fora dos seus lotes)';
+      }
+    }
+  }catch(e){}
+  setTimeout(ler,250);
+}
+function fecharScanner(){
+  scanAtivo=false;
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  document.getElementById('modalScan').style.display='none';
+}
+
+restaurarSessao();
+</script>
+</body>
+</html>

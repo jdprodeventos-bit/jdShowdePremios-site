@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JD Vendas - Gerente</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#0b1d3a;color:#fff}
+.wrap{max-width:960px;margin:0 auto;padding:14px}
+h1{color:#ffd24a;font-size:22px;margin:6px 0 14px}
+.card{background:#14305f;border-radius:14px;padding:14px;margin-bottom:14px}
+.card h2{margin:0 0 10px;font-size:17px;color:#ffd24a}
+label{display:block;font-size:13px;color:#9db4d8;margin:8px 0 4px}
+input,select{width:100%;padding:11px;font-size:15px;border-radius:8px;border:2px solid #2a4d8f;background:#0b1d3a;color:#fff}
+button{padding:11px 14px;font-size:14px;font-weight:bold;border:none;border-radius:8px;cursor:pointer;margin-top:8px}
+.b-ouro{background:#ffd24a;color:#1a1a1a}.b-azul{background:#2a6bd6;color:#fff}
+.b-verm{background:#c0392b;color:#fff}.b-cinza{background:#3a4a66;color:#fff}
+.b-peq{padding:6px 10px;font-size:12px;margin:2px}
+.linha{display:flex;gap:8px;flex-wrap:wrap}.linha>*{flex:1;min-width:130px}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.kpi{background:#0b1d3a;border-radius:10px;padding:10px;text-align:center}
+.kpi b{display:block;font-size:22px;color:#ffd24a}.kpi span{font-size:12px;color:#9db4d8}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 5px;border-bottom:1px solid #264a86;text-align:center}
+th{color:#9db4d8;font-weight:normal}
+td:first-child,th:first-child{text-align:left}
+.rolar{overflow-x:auto}
+.item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #264a86;font-size:14px}
+.item small{color:#9db4d8;display:block}
+.oculto{display:none}
+.vend{background:#0b1d3a;border-radius:10px;padding:10px;margin-bottom:10px}
+.tag{display:inline-block;background:#2a4d8f;border-radius:6px;padding:3px 7px;margin:2px;font-size:12px}
+.msg{font-size:13px;margin-top:6px;color:#ffd24a}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div id="telaLogin" class="card" style="max-width:380px;margin:40px auto">
+  <h1>🔒 Gerente - Vendas</h1>
+  <label>Senha do Painel</label>
+  <input type="password" id="senha" placeholder="Digite a senha master" onkeydown="if(event.key==='Enter')entrar()">
+  <button class="b-ouro" style="width:100%" onclick="entrar()">ENTRAR</button>
+</div>
+
+<div id="painel" class="oculto">
+  <h1>📊 JD Vendas - Painel do Gerente</h1>
+
+  <div class="card">
+    <h2>Resumo ao vivo</h2>
+    <div class="grade">
+      <div class="kpi"><b id="rHoje">0</b><span>Vendidas hoje</span></div>
+      <div class="kpi"><b id="rSem">0</b><span>Na semana</span></div>
+      <div class="kpi"><b id="rMes">0</b><span>No mês</span></div>
+      <div class="kpi"><b id="rTotal">0</b><span>Total vendidas</span></div>
+      <div class="kpi"><b id="rValor">R$ 0</b><span>Arrecadado total</span></div>
+      <div class="kpi"><b id="rValorHoje">R$ 0</b><span>Arrecadado hoje</span></div>
+      <div class="kpi"><b id="rEntregues">0</b><span>Cartelas entregues</span></div>
+      <div class="kpi"><b id="rComVend">0</b><span>Ainda com vendedores</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Evento e preço</h2>
+    <div class="linha">
+      <div><label>Nome do evento</label><input id="cfEvento" placeholder="Ex.: Bingão da Virada"></div>
+      <div><label>Preço da cartela (R$)</label><input id="cfPreco" inputmode="decimal" placeholder="Ex.: 20"></div>
+    </div>
+    <button class="b-ouro" onclick="salvarConfig()">Salvar</button>
+    <div id="msgCfg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2 id="tituloForm">Cadastrar vendedor</h2>
+    <div class="linha">
+      <div><label>Nome para login (curto, ex.: Maria)</label><input id="nvNome" placeholder="Nome que ele digita no app"></div>
+      <div><label>PIN (números)</label><input id="nvPin" inputmode="numeric" placeholder="Ex.: 4821"></div>
+    </div>
+    <label>Nome completo</label><input id="nvCompleto" placeholder="Nome completo">
+    <div class="linha">
+      <div><label>RG</label><input id="nvRg" placeholder="RG"></div>
+      <div><label>Telefone</label><input id="nvTel" inputmode="tel" placeholder="(92) 99999-9999"></div>
+    </div>
+    <label>Endereço</label><input id="nvEnd" placeholder="Rua, número, bairro, cidade">
+    <label>Foto do vendedor</label>
+    <input id="nvFoto" type="file" accept="image/*" capture="user" onchange="prepararFoto(this)">
+    <img id="prevFoto" style="display:none;width:90px;height:90px;object-fit:cover;border-radius:10px;margin-top:8px">
+    <div class="linha"><button class="b-ouro" id="btnCad" onclick="cadastrarVendedor()">Cadastrar</button>
+    <button class="b-cinza oculto" id="btnCancEd" onclick="cancelarEdicao()">Cancelar edição</button></div>
+    <div id="msgVend" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Vendedores, lotes e devoluções</h2>
+    <div id="listaVendedores"></div>
+  </div>
+
+  <div class="card">
+    <h2>Desempenho por vendedor</h2>
+    <div class="rolar"><table>
+      <thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas</th><th>Devolv.</th><th>Comigo</th><th>Hoje</th><th>Semana</th><th>Mês</th><th>Valor</th></tr></thead>
+      <tbody id="tabela"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h2>Últimas vendas</h2>
+    <div id="feed"></div>
+    <button class="b-azul" onclick="baixarCSV()">⬇ Baixar todas as vendas (planilha)</button>
+  </div>
+</div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCLC7C8mGgoWZUGGARH-D_5KhVAb81a9xY",
+  authDomain: "jd-show-premios-novo.firebaseapp.com",
+  databaseURL: "https://jd-show-premios-novo-default-rtdb.firebaseio.com",
+  projectId: "jd-show-premios-novo",
+  storageBucket: "jd-show-premios-novo.firebasestorage.app",
+  messagingSenderId: "1013416322561",
+  appId: "1:1013416322561:web:a7d072caf168c5d1ad4200"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let vendedores = {}, cartelas = {}, cadastros = {}, config = {evento:'',preco:0};
+let fotoNova = null, editId = null;
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function norm(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); }
+function moeda(v){ return 'R$ '+(Number(v)||0).toFixed(2).replace('.',','); }
+async function hashPin(id,pin){
+  const buf = new TextEncoder().encode(id+':'+pin);
+  const h = await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function inicioDia(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); }
+function inicioSemana(){ const d=new Date(); d.setHours(0,0,0,0); const dia=d.getDay(); d.setDate(d.getDate()-(dia===0?6:dia-1)); return d.getTime(); }
+function inicioMes(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(1); return d.getTime(); }
+function msg(id,t){ const e=document.getElementById(id); e.textContent=t; clearTimeout(e._t); e._t=setTimeout(()=>{e.textContent=''},6000); }
+function erroDb(e){ alert('Erro ao gravar: '+(e&&e.message?e.message:e)); }
+
+function entrar(){
+  if(document.getElementById('senha').value==='jd123'){
+    document.getElementById('telaLogin').classList.add('oculto');
+    document.getElementById('painel').classList.remove('oculto');
+    escutar();
+  } else alert('Senha incorreta!');
+}
+
+function escutar(){
+  db.ref('equipeVendas/config').on('value',s=>{
+    config=s.val()||{evento:'',preco:0};
+    document.getElementById('cfEvento').value=config.evento||'';
+    document.getElementById('cfPreco').value=config.preco||'';
+  });
+  db.ref('equipeVendas/vendedores').on('value',s=>{ vendedores=s.val()||{}; desenhar(); });
+  db.ref('equipeVendas/cadastros').on('value',s=>{ cadastros=s.val()||{}; desenhar(); });
+  db.ref('equipeVendas/cartelas').on('value',s=>{ cartelas=s.val()||{}; desenhar(); });
+}
+
+function salvarConfig(){
+  const preco = parseFloat(String(document.getElementById('cfPreco').value).replace(',','.'));
+  if(!(preco>=0)){ msg('msgCfg','Preço inválido.'); return; }
+  db.ref('equipeVendas/config').set({evento:document.getElementById('cfEvento').value.trim(),preco:preco})
+    .then(()=>msg('msgCfg','Salvo!')).catch(erroDb);
+}
+
+function prepararFoto(inp){
+  const f=inp.files&&inp.files[0]; if(!f){ fotoNova=null; return; }
+  const img=new Image(), url=URL.createObjectURL(f);
+  img.onload=function(){
+    const m=360, k=Math.min(1,m/Math.max(img.width,img.height));
+    const c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    fotoNova=c.toDataURL('image/jpeg',0.7);
+    const p=document.getElementById('prevFoto'); p.src=fotoNova; p.style.display='block';
+    URL.revokeObjectURL(url);
+  };
+  img.onerror=function(){ alert('Não foi possível ler a foto.'); };
+  img.src=url;
+}
+function limparForm(){
+  ['nvNome','nvPin','nvCompleto','nvRg','nvTel','nvEnd','nvFoto'].forEach(i=>{document.getElementById(i).value='';});
+  document.getElementById('prevFoto').style.display='none'; fotoNova=null; editId=null;
+  document.getElementById('tituloForm').textContent='Cadastrar vendedor';
+  document.getElementById('btnCad').textContent='Cadastrar';
+  document.getElementById('btnCancEd').classList.add('oculto');
+  document.getElementById('nvPin').placeholder='Ex.: 4821';
+}
+function cancelarEdicao(){ limparForm(); }
+function editarVendedor(id){
+  const v=vendedores[id], c=cadastros[id]||{};
+  limparForm(); editId=id;
+  document.getElementById('nvNome').value=v.nome||'';
+  document.getElementById('nvCompleto').value=c.nomeCompleto||'';
+  document.getElementById('nvRg').value=c.rg||'';
+  document.getElementById('nvTel').value=c.telefone||'';
+  document.getElementById('nvEnd').value=c.endereco||'';
+  if(c.foto){ const p=document.getElementById('prevFoto'); p.src=c.foto; p.style.display='block'; }
+  document.getElementById('tituloForm').textContent='Editar vendedor: '+v.nome;
+  document.getElementById('btnCad').textContent='Salvar alterações';
+  document.getElementById('btnCancEd').classList.remove('oculto');
+  document.getElementById('nvPin').placeholder='Deixe vazio para manter o PIN';
+  document.getElementById('tituloForm').scrollIntoView({behavior:'smooth'});
+}
+async function cadastrarVendedor(){
+  const nome=document.getElementById('nvNome').value.trim();
+  const pin=document.getElementById('nvPin').value.trim();
+  const dados={
+    nomeCompleto:document.getElementById('nvCompleto').value.trim(),
+    rg:document.getElementById('nvRg').value.trim(),
+    telefone:document.getElementById('nvTel').value.trim(),
+    endereco:document.getElementById('nvEnd').value.trim()
+  };
+  if(nome.length<2){ msg('msgVend','Informe o nome para login.'); return; }
+  if(dados.nomeCompleto.length<5){ msg('msgVend','Informe o nome completo.'); return; }
+  if(!dados.rg){ msg('msgVend','Informe o RG.'); return; }
+  if(!dados.endereco){ msg('msgVend','Informe o endereço.'); return; }
+  if(dados.telefone.replace(/\D/g,'').length<10){ msg('msgVend','Telefone inválido.'); return; }
+  for(const id in vendedores){ if(id!==editId && norm(vendedores[id].nome)===norm(nome)){ msg('msgVend','Já existe vendedor com esse nome de login.'); return; } }
+  try{
+    if(editId){
+      const id=editId;
+      if(pin){
+        if(!/^\d{4,8}$/.test(pin)){ msg('msgVend','PIN deve ter de 4 a 8 números.'); return; }
+        await db.ref('equipeVendas/vendedores/'+id+'/pinHash').set(await hashPin(id,pin));
+      }
+      await db.ref('equipeVendas/vendedores/'+id+'/nome').set(nome);
+      dados.foto = fotoNova || ((cadastros[id]||{}).foto) || '';
+      await db.ref('equipeVendas/cadastros/'+id).set(dados);
+      limparForm(); msg('msgVend','Alterações salvas!');
+    }else{
+      if(!/^\d{4,8}$/.test(pin)){ msg('msgVend','PIN deve ter de 4 a 8 números.'); return; }
+      if(!fotoNova){ msg('msgVend','Tire ou escolha a foto do vendedor.'); return; }
+      const ref=db.ref('equipeVendas/vendedores').push();
+      const h=await hashPin(ref.key,pin);
+      dados.foto=fotoNova;
+      await db.ref('equipeVendas/cadastros/'+ref.key).set(dados);
+      await ref.set({nome:nome,pinHash:h,ativo:true,criado:Date.now()});
+      limparForm(); msg('msgVend','Vendedor cadastrado!');
+    }
+  }catch(e){ erroDb(e); }
+}
+async function trocarPin(id){
+  const pin=prompt('Novo PIN (4 a 8 números):');
+  if(pin===null) return;
+  if(!/^\d{4,8}$/.test(pin.trim())){ alert('PIN inválido.'); return; }
+  const h=await hashPin(id,pin.trim());
+  db.ref('equipeVendas/vendedores/'+id+'/pinHash').set(h).then(()=>alert('PIN alterado.')).catch(erroDb);
+}
+function alternarAtivo(id){
+  db.ref('equipeVendas/vendedores/'+id+'/ativo').set(vendedores[id].ativo===false).catch(erroDb);
+}
+function excluirVendedor(id){
+  const temVenda = Object.keys(cartelas).some(n=>cartelas[n]&&cartelas[n].vendedorId===id);
+  if(temVenda){ alert('Este vendedor tem vendas registradas. Use "Desativar" em vez de excluir.'); return; }
+  if(!confirm('Excluir o vendedor '+vendedores[id].nome+'?')) return;
+  db.ref('equipeVendas/cadastros/'+id).remove();
+  db.ref('equipeVendas/vendedores/'+id).remove().catch(erroDb);
+}
+
+function lotesDe(id){
+  const l=(vendedores[id]&&vendedores[id].lotes)||{};
+  return Object.keys(l).filter(k=>l[k]).map(k=>({key:k,de:Number(l[k].de),ate:Number(l[k].ate)})).sort((a,b)=>a.de-b.de);
+}
+function entregarLote(id){
+  const de=parseInt(document.getElementById('de_'+id).value,10);
+  const ate=parseInt(document.getElementById('ate_'+id).value,10);
+  if(!(de>0)||!(ate>=de)){ alert('Informe a faixa: número inicial e final (final maior ou igual ao inicial).'); return; }
+  for(const vid in vendedores){
+    for(const l of lotesDe(vid)){
+      if(de<=l.ate && ate>=l.de){ alert('Essa faixa se sobrepõe ao lote '+l.de+' a '+l.ate+' de '+vendedores[vid].nome+'.'); return; }
+    }
+  }
+  db.ref('equipeVendas/vendedores/'+id+'/lotes').push({de:de,ate:ate,data:Date.now()}).catch(erroDb);
+}
+function removerLote(id,key){
+  const l=vendedores[id].lotes[key];
+  const temVenda=Object.keys(cartelas).some(n=>{ const c=cartelas[n]; return c&&c.status!=='devolvida'&&Number(n)>=l.de&&Number(n)<=l.ate; });
+  if(temVenda){ alert('Há cartelas vendidas nesse lote. Não é possível remover.'); return; }
+  if(!confirm('Remover o lote '+l.de+' a '+l.ate+'?')) return;
+  db.ref('equipeVendas/vendedores/'+id+'/lotes/'+key).remove().catch(erroDb);
+}
+function devolver(id){
+  const n=parseInt(document.getElementById('dev_'+id).value,10);
+  if(!(n>0)){ alert('Informe o número da cartela devolvida.'); return; }
+  if(!lotesDe(id).some(l=>n>=l.de&&n<=l.ate)){ alert('A cartela '+n+' não está nos lotes deste vendedor.'); return; }
+  db.ref('equipeVendas/cartelas/'+n).transaction(atual=>{
+    if(atual===null) return {vendedorId:id,vendedorNome:vendedores[id].nome,status:'devolvida',ts:Date.now()};
+    return; // vendida ou já devolvida: aborta
+  }).then(r=>{
+    if(r.committed){ document.getElementById('dev_'+id).value=''; }
+    else alert('Cartela '+n+' já consta como vendida ou devolvida. Se foi venda errada, estorne a venda primeiro.');
+  }).catch(erroDb);
+}
+function desfazerDevolucao(n){
+  if(!confirm('Desfazer devolução da cartela '+n+'?')) return;
+  db.ref('equipeVendas/cartelas/'+n).remove().catch(erroDb);
+}
+function estornar(n){
+  const c=cartelas[n];
+  if(!confirm('Estornar a venda da cartela '+n+' ('+c.comprador+')? Ela voltará a ficar com o vendedor.')) return;
+  db.ref('equipeVendas/cartelas/'+n).remove().catch(erroDb);
+}
+
+function desenhar(){
+  const iDia=inicioDia(), iSem=inicioSemana(), iMes=inicioMes();
+  const st={}; // por vendedor
+  Object.keys(vendedores).forEach(id=>{
+    let ent=0; lotesDe(id).forEach(l=>{ent+=l.ate-l.de+1;});
+    st[id]={ent:ent,vend:0,dev:0,hoje:0,sem:0,mes:0,valor:0,devList:[]};
+  });
+  let tHoje=0,tSem=0,tMes=0,tTotal=0,vTotal=0,vHoje=0;
+  const vendas=[];
+  Object.keys(cartelas).forEach(n=>{
+    const c=cartelas[n]; if(!c) return;
+    const s=st[c.vendedorId];
+    if(c.status==='devolvida'){ if(s){s.dev++;s.devList.push(n);} return; }
+    tTotal++; vTotal+=Number(c.valor)||0;
+    vendas.push({n:n,c:c});
+    const t=c.ts||0;
+    if(t>=iDia){tHoje++;vHoje+=Number(c.valor)||0;}
+    if(t>=iSem)tSem++;
+    if(t>=iMes)tMes++;
+    if(s){ s.vend++; if(t>=iDia)s.hoje++; if(t>=iSem)s.sem++; if(t>=iMes){s.mes++;s.valor+=Number(c.valor)||0;} }
+  });
+  let entTotal=0, comTotal=0;
+  Object.keys(st).forEach(id=>{ entTotal+=st[id].ent; comTotal+=Math.max(0,st[id].ent-st[id].vend-st[id].dev); });
+  document.getElementById('rHoje').textContent=tHoje;
+  document.getElementById('rSem').textContent=tSem;
+  document.getElementById('rMes').textContent=tMes;
+  document.getElementById('rTotal').textContent=tTotal;
+  document.getElementById('rValor').textContent=moeda(vTotal);
+  document.getElementById('rValorHoje').textContent=moeda(vHoje);
+  document.getElementById('rEntregues').textContent=entTotal;
+  document.getElementById('rComVend').textContent=comTotal;
+
+  // cartões de vendedores (preserva campos digitados)
+  const guard={};
+  document.querySelectorAll('#listaVendedores input').forEach(i=>{ if(i.id) guard[i.id]=i.value; });
+  const ids=Object.keys(vendedores).sort((a,b)=>norm(vendedores[a].nome).localeCompare(norm(vendedores[b].nome)));
+  document.getElementById('listaVendedores').innerHTML = ids.length ? ids.map(id=>{
+    const v=vendedores[id], s=st[id], cd=cadastros[id]||{};
+    return '<div class="vend"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;align-items:center">'
+      +'<b>'+esc(v.nome)+(v.ativo===false?' <span class="tag" style="background:#a62b2b">desativado</span>':'')+'</b>'
+      +'<div><button class="b-azul b-peq" onclick="editarVendedor(\''+id+'\')">Editar dados</button><button class="b-cinza b-peq" onclick="trocarPin(\''+id+'\')">Trocar PIN</button>'
+      +'<button class="b-cinza b-peq" onclick="alternarAtivo(\''+id+'\')">'+(v.ativo===false?'Reativar':'Desativar')+'</button>'
+      +'<button class="b-verm b-peq" onclick="excluirVendedor(\''+id+'\')">Excluir</button></div></div>'
+      +'<div style="display:flex;gap:10px;align-items:center;margin:8px 0">'+(cd.foto?'<img src="'+esc(cd.foto)+'" style="width:64px;height:64px;object-fit:cover;border-radius:8px">':'')+'<div style="font-size:12px;color:#9db4d8">'+esc(cd.nomeCompleto||'')+'<br>RG: '+esc(cd.rg||'-')+' • Tel: '+esc(cd.telefone||'-')+'<br>'+esc(cd.endereco||'')+'</div></div>'
+      +'<div style="font-size:13px;color:#9db4d8;margin:6px 0">Entregues '+s.ent+' • Vendidas '+s.vend+' • Devolvidas '+s.dev+' • Comigo '+Math.max(0,s.ent-s.vend-s.dev)+'</div>'
+      +'<div>'+(lotesDe(id).map(l=>'<span class="tag">'+l.de+' a '+l.ate+' <a href="#" style="color:#ff8a80;text-decoration:none" onclick="removerLote(\''+id+'\',\''+l.key+'\');return false">✕</a></span>').join('')||'<span style="font-size:13px;color:#9db4d8">Sem lotes</span>')+'</div>'
+      +'<div class="linha"><div><label>Lote: do nº</label><input id="de_'+id+'" inputmode="numeric"></div><div><label>até o nº</label><input id="ate_'+id+'" inputmode="numeric"></div></div>'
+      +'<button class="b-azul" onclick="entregarLote(\''+id+'\')">Entregar lote</button>'
+      +'<div class="linha"><div><label>Devolução: nº da cartela</label><input id="dev_'+id+'" inputmode="numeric"></div></div>'
+      +'<button class="b-ouro" onclick="devolver(\''+id+'\')">Marcar devolvida</button>'
+      +(s.devList.length?'<div style="margin-top:6px;font-size:12px;color:#9db4d8">Devolvidas: '+s.devList.sort((a,b)=>a-b).map(n=>'<span class="tag">'+esc(n)+' <a href="#" style="color:#ff8a80;text-decoration:none" onclick="desfazerDevolucao(\''+esc(n)+'\');return false">✕</a></span>').join('')+'</div>':'')
+      +'</div>';
+  }).join('') : '<div style="color:#9db4d8">Nenhum vendedor cadastrado.</div>';
+  Object.keys(guard).forEach(k=>{ const e=document.getElementById(k); if(e) e.value=guard[k]; });
+
+  const rank=ids.slice().sort((a,b)=>st[b].mes-st[a].mes||st[b].vend-st[a].vend);
+  document.getElementById('tabela').innerHTML = rank.map(id=>{ const s=st[id];
+    return '<tr><td>'+esc(vendedores[id].nome)+'</td><td>'+s.ent+'</td><td>'+s.vend+'</td><td>'+s.dev+'</td><td>'+Math.max(0,s.ent-s.vend-s.dev)+'</td><td>'+s.hoje+'</td><td>'+s.sem+'</td><td>'+s.mes+'</td><td>'+moeda(s.valor)+'</td></tr>';
+  }).join('');
+
+  vendas.sort((a,b)=>b.c.ts-a.c.ts);
+  document.getElementById('feed').innerHTML = vendas.slice(0,30).map(x=>{
+    const d=new Date(x.c.ts);
+    return '<div class="item"><div><b>Cartela '+esc(x.n)+'</b> - '+esc(x.c.comprador)+'<small>'+esc(x.c.telefone)+' • '+esc(x.c.vendedorNome)+' • '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</small></div>'
+      +'<div style="text-align:right">'+moeda(x.c.valor)+'<br><a href="#" style="color:#ff8a80;font-size:12px" onclick="estornar(\''+esc(x.n)+'\');return false">estornar</a></div></div>';
+  }).join('') || '<div style="color:#9db4d8">Nenhuma venda ainda.</div>';
+}
+
+function baixarCSV(){
+  const linhas=[['Cartela','Comprador','Telefone','Vendedor','Valor','Data/Hora']];
+  Object.keys(cartelas).sort((a,b)=>a-b).forEach(n=>{
+    const c=cartelas[n]; if(!c||c.status==='devolvida') return;
+    linhas.push([n,c.comprador,c.telefone,c.vendedorNome,String(c.valor).replace('.',','),new Date(c.ts).toLocaleString('pt-BR')]);
+  });
+  const csv='﻿'+linhas.map(l=>l.map(x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='vendas-cartelas.csv'; document.body.appendChild(a); a.click(); a.remove();
+}
+</script>
+</body>
+</html>
