@@ -34,6 +34,19 @@ td:first-child,th:first-child{text-align:left}
 .vend{background:#0b1d3a;border-radius:10px;padding:10px;margin-bottom:10px}
 .tag{display:inline-block;background:#2a4d8f;border-radius:6px;padding:3px 7px;margin:2px;font-size:12px}
 .atraso{color:#ff8a80;font-weight:bold}
+.abaoff{display:none!important}
+.cab{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.cab img{height:74px;width:auto;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.cabnome{font-size:22px;font-weight:bold;color:#ffd24a;letter-spacing:1px;line-height:1.1}
+.cabsub{font-size:13px;color:#9db4d8}
+.abas{display:flex;gap:6px;overflow-x:auto;position:sticky;top:0;background:#0b1d3a;padding:8px 0;margin-bottom:10px;z-index:10}
+.abas button{flex:0 0 auto;margin:0;background:#14305f;color:#9db4d8;border:2px solid #2a4d8f;padding:9px 12px;font-size:13px}
+.abas button.ativa{background:#ffd24a;color:#1a1a1a;border-color:#ffd24a}
+.bom{color:#4cd37b}.ruim{color:#ff8a80}
+.barra{background:#0b1d3a;border-radius:8px;height:16px;overflow:hidden;margin:6px 0}
+.barra div{height:100%;background:#4cd37b}
+.fs-ds{background:#3d3200}
+
 .msg{font-size:13px;margin-top:6px;color:#ffd24a}
 </style>
 </head>
@@ -41,16 +54,24 @@ td:first-child,th:first-child{text-align:left}
 <div class="wrap">
 
 <div id="telaLogin" class="card" style="max-width:380px;margin:40px auto">
-  <h1>🔒 Gerente - Vendas</h1>
+  <div class="cab"><img src="boneco.png" alt=""><div><div class="cabnome">BINGÃO DA VIRADA</div><div class="cabsub">JD Vendas • Gerente</div></div></div>
   <label>Senha do Painel</label>
   <input type="password" id="senha" placeholder="Digite a senha master" onkeydown="if(event.key==='Enter')entrar()">
   <button class="b-ouro" style="width:100%" onclick="entrar()">ENTRAR</button>
 </div>
 
 <div id="painel" class="oculto">
-  <h1>📊 JD Vendas - Painel do Gerente</h1>
+  <div class="cab"><img src="boneco.png" alt=""><div><div class="cabnome">BINGÃO DA VIRADA</div><div class="cabsub">JD Vendas • Painel do Gerente</div></div></div>
+  <div class="abas" id="barraAbas">
+    <button data-btn="resumo" onclick="abrirAba('resumo')">📊 Resumo</button>
+    <button data-btn="fases" onclick="abrirAba('fases')">🍀 Fases</button>
+    <button data-btn="fiados" onclick="abrirAba('fiados')">🤝 Fiados</button>
+    <button data-btn="equipe" onclick="abrirAba('equipe')">👥 Equipe</button>
+    <button data-btn="resultado" onclick="abrirAba('resultado')">💰 Resultado</button>
+    <button data-btn="config" onclick="abrirAba('config')">⚙️ Config</button>
+  </div>
 
-  <div class="card">
+  <div class="card" data-aba="resumo">
     <h2>Resumo ao vivo</h2>
     <div class="grade">
       <div class="kpi"><b id="rHoje">0</b><span>Vendidas hoje</span></div>
@@ -66,7 +87,7 @@ td:first-child,th:first-child{text-align:left}
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" data-aba="resumo">
     <h2>Arrecadado por forma de pagamento</h2>
     <div class="rolar"><table>
       <thead><tr><th>Forma</th><th>Cartelas</th><th>Valor total</th><th>Hoje</th></tr></thead>
@@ -75,28 +96,33 @@ td:first-child,th:first-child{text-align:left}
     <div style="font-size:12px;color:#9db4d8;margin-top:6px">"Fiado" é dinheiro ainda a receber. Quando o vendedor repassar o valor, use "alterar pgto" na lista de vendas para mudar a forma.</div>
   </div>
 
-  <div class="card" style="border:2px solid #ffd24a">
+  <div class="card" data-aba="fiados" style="border:2px solid #ffd24a">
     <h2>🤝 Fiados a receber</h2>
     <div id="resumoFiado" style="font-size:13px;color:#9db4d8;margin-bottom:8px"></div>
     <div id="listaFiados"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-aba="fiados">
     <h2>Desistências (cartelas liberadas)</h2>
     <div id="listaDesist"></div>
   </div>
 
-  <div class="card">
-    <h2>Evento e preço</h2>
+  <div class="card" data-aba="config">
+    <h2>Evento, preço e datas de corte</h2>
     <div class="linha">
       <div><label>Nome do evento</label><input id="cfEvento" placeholder="Ex.: Bingão da Virada"></div>
       <div><label>Preço da cartela (R$)</label><input id="cfPreco" inputmode="decimal" placeholder="Ex.: 20"></div>
     </div>
+    <div class="linha">
+      <div><label>🍀 Dias da Sorte: vendidas ANTES de</label><input id="cfDS" type="datetime-local"></div>
+      <div><label>Pré-venda: vendidas ANTES de</label><input id="cfPre" type="datetime-local"></div>
+    </div>
+    <div style="font-size:12px;color:#9db4d8;margin-top:6px">Depois do limite da pré-venda, as vendas entram como "Venda no dia do Bingão". Todas as vendas dos Dias da Sorte também contam como pré-venda. Cartelas fiadas só entram nos Dias da Sorte depois de pagas.</div>
     <button class="b-ouro" onclick="salvarConfig()">Salvar</button>
     <div id="msgCfg" class="msg"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-aba="equipe">
     <h2 id="tituloForm">Cadastrar vendedor</h2>
     <div class="linha">
       <div><label>Nome para login (curto, ex.: Maria)</label><input id="nvNome" placeholder="Nome que ele digita no app"></div>
@@ -116,12 +142,12 @@ td:first-child,th:first-child{text-align:left}
     <div id="msgVend" class="msg"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-aba="equipe">
     <h2>Vendedores, lotes e devoluções</h2>
     <div id="listaVendedores"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-aba="resumo">
     <h2>Desempenho por vendedor</h2>
     <div class="rolar"><table>
       <thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas</th><th>Devolv.</th><th>Comigo</th><th>Hoje</th><th>Semana</th><th>Mês</th><th>Recebido</th><th>A receber</th></tr></thead>
@@ -129,16 +155,97 @@ td:first-child,th:first-child{text-align:left}
     </table></div>
   </div>
 
-  <div class="card" id="cardConflitos" style="display:none;border:2px solid #ff8a80">
+  <div class="card" data-aba="resumo" id="cardConflitos" style="display:none;border:2px solid #ff8a80">
     <h2>⚠️ Conflitos de cartela (vendida duas vezes)</h2>
     <div style="font-size:12px;color:#9db4d8;margin-bottom:8px">Acontece quando um vendedor registrou sem internet uma cartela que já constava como vendida. A primeira venda enviada vale; confira com o comprador do segundo registro.</div>
     <div id="listaConflitos"></div>
   </div>
 
-  <div class="card">
+
+  <!-- ABA FASES -->
+  <div class="card" data-aba="fases">
+    <h2>🍀 Fases de venda</h2>
+    <div class="grade">
+      <div class="kpi"><b id="fDS">0</b><span>Dias da Sorte</span></div>
+      <div class="kpi"><b id="fPre">0</b><span>Pré-venda (total)</span></div>
+      <div class="kpi"><b id="fDia">0</b><span>Venda no dia do Bingão</span></div>
+      <div class="kpi"><b id="fDSv">R$ 0</b><span>Valor Dias da Sorte</span></div>
+      <div class="kpi"><b id="fPrev">R$ 0</b><span>Valor pré-venda</span></div>
+      <div class="kpi"><b id="fDiav">R$ 0</b><span>Valor venda no dia</span></div>
+    </div>
+    <div id="txtCortes" style="font-size:12px;color:#9db4d8;margin-top:8px"></div>
+  </div>
+
+  <div class="card" data-aba="fases" style="border:2px solid #ffd24a">
+    <h2 id="tituloLista">🍀 DIAS DA SORTE - separar para sorteio</h2>
+    <label>Ver lista</label>
+    <select id="selFase" onchange="desenhar()">
+      <option value="ds">🍀 Dias da Sorte</option>
+      <option value="pre">Pré-venda (todas, inclui Dias da Sorte)</option>
+      <option value="dia">Venda no dia do Bingão</option>
+      <option value="todas">Todas as vendas</option>
+    </select>
+    <div id="resumoLista" style="font-size:13px;color:#9db4d8;margin:8px 0"></div>
+    <div class="rolar"><table>
+      <thead><tr><th>Cartela</th><th>Comprador</th><th>Telefone</th><th>Vendedor</th><th>Data/hora</th><th>Situação</th></tr></thead>
+      <tbody id="tabFase"></tbody>
+    </table></div>
+    <div id="boxFiadoDS" style="margin-top:14px"></div>
+    <button class="b-ouro" onclick="baixarCSV('ds')">⬇ Baixar lista Dias da Sorte</button>
+    <button class="b-azul" onclick="baixarCSV('todas')">⬇ Baixar todas as vendas com a fase</button>
+  </div>
+
+  <!-- ABA RESULTADO OPERACIONAL -->
+  <div class="card" data-aba="resultado">
+    <h2>💰 Despesas do evento</h2>
+    <div class="linha">
+      <div><label>Descrição</label><input id="dsDesc" placeholder="Ex.: Impressão das cartelas"></div>
+      <div><label>Valor (R$)</label><input id="dsValor" inputmode="decimal" placeholder="Ex.: 1500"></div>
+    </div>
+    <div class="linha">
+      <div><label>Categoria</label>
+        <select id="dsCat"><option>Gráfica / impressão</option><option>Prêmios</option><option>Local / estrutura</option><option>Som / iluminação</option><option>Divulgação</option><option>Pessoal / equipe</option><option>Taxas / impostos</option><option>Outros</option></select></div>
+      <div><label>Tipo</label>
+        <select id="dsTipo"><option value="fixa">Fixa (valor total do evento)</option><option value="variavel">Variável (valor POR CARTELA vendida)</option></select></div>
+    </div>
+    <button class="b-ouro" onclick="addDespesa()">Adicionar despesa</button>
+    <div id="msgDesp" class="msg"></div>
+    <div id="listaDespesas" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card" data-aba="resultado">
+    <h2>Parâmetros do cálculo</h2>
+    <div class="linha">
+      <div><label>Comissão dos vendedores (% sobre cada venda)</label><input id="cfComissao" inputmode="decimal" placeholder="Ex.: 10"></div>
+      <div><label>Meta: total de cartelas a vender</label><input id="cfMeta" inputmode="numeric" placeholder="Ex.: 1000"></div>
+    </div>
+    <button class="b-ouro" onclick="salvarParametros()">Salvar parâmetros</button>
+    <div id="msgPar" class="msg"></div>
+  </div>
+
+  <div class="card" data-aba="resultado" style="border:2px solid #ffd24a">
+    <h2>📈 RESULTADO OPERACIONAL</h2>
+    <div id="resultadoOp"></div>
+  </div>
+
+  <!-- ABA CONFIG: TESTES -->
+  <div class="card" data-aba="config">
+    <h2>🧪 Modelo para testes</h2>
+    <div style="font-size:13px;color:#9db4d8;margin-bottom:8px">
+      Gera 3 vendedores de teste (nomes "Teste Ana", "Teste Bruno" e "Teste Carla", PIN <b>1234</b>), cada um com um lote de cartelas e vendas em várias datas e formas de pagamento (inclusive fiados atrasados e vendas perto das datas de corte), mais despesas de exemplo. Os dados de teste ficam marcados e podem ser apagados sem mexer nos dados reais.
+    </div>
+    <button class="b-azul" onclick="gerarTeste()">Gerar dados de teste</button>
+    <button class="b-cinza" onclick="apagarTeste()">Apagar dados de teste</button>
+    <hr style="border:0;border-top:1px solid #264a86;margin:14px 0">
+    <div style="font-size:13px;color:#9db4d8">Antes de começar a vender de verdade, zere as vendas feitas durante os testes. Isso apaga todas as vendas, desistências e conflitos. Vendedores, lotes e despesas não são apagados.</div>
+    <button class="b-verm" onclick="zerarVendas()">Zerar TODAS as vendas</button>
+    <div id="msgTeste" class="msg"></div>
+  </div>
+
+  <div class="card" data-aba="resumo">
     <h2>Últimas vendas</h2>
     <div id="feed"></div>
-    <button class="b-azul" onclick="baixarCSV()">⬇ Baixar todas as vendas (planilha)</button>
+    <button class="b-azul" onclick="baixarCSV('todas')">⬇ Baixar todas as vendas (planilha)</button>
   </div>
 </div>
 </div>
@@ -166,7 +273,8 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let conflitos = {}, desistencias = {};
+let conflitos = {}, desistencias = {}, despesas = {};
+const DS_DEF='2026-12-26T14:00', PRE_DEF='2026-12-31T13:00';
 let vendedores = {}, cartelas = {}, cadastros = {}, config = {evento:'',preco:0};
 let fotoNova = null, editId = null;
 
@@ -189,6 +297,8 @@ function entrar(){
     document.getElementById('telaLogin').classList.add('oculto');
     document.getElementById('painel').classList.remove('oculto');
     escutar();
+    let ab='resumo'; try{ ab=localStorage.getItem('jd_adm_aba')||'resumo'; }catch(e){}
+    abrirAba(ab);
   } else alert('Senha incorreta!');
 }
 
@@ -197,8 +307,14 @@ function escutar(){
     config=s.val()||{evento:'',preco:0};
     document.getElementById('cfEvento').value=config.evento||'';
     document.getElementById('cfPreco').value=config.preco||'';
+    document.getElementById('cfDS').value=config.diasSorteLimite||DS_DEF;
+    document.getElementById('cfPre').value=config.preVendaLimite||PRE_DEF;
+    document.getElementById('cfComissao').value=config.comissaoPct||'';
+    document.getElementById('cfMeta').value=config.metaCartelas||'';
+    desenhar();
   });
   db.ref('equipeVendas/vendedores').on('value',s=>{ vendedores=s.val()||{}; desenhar(); });
+  db.ref('equipeVendas/despesas').on('value',s=>{ despesas=s.val()||{}; desenhar(); });
   db.ref('equipeVendas/desistencias').on('value',s=>{ desistencias=s.val()||{}; desenhar(); });
   db.ref('equipeVendas/conflitos').on('value',s=>{ conflitos=s.val()||{}; desenhar(); });
   db.ref('equipeVendas/cadastros').on('value',s=>{ cadastros=s.val()||{}; desenhar(); });
@@ -208,8 +324,18 @@ function escutar(){
 function salvarConfig(){
   const preco = parseFloat(String(document.getElementById('cfPreco').value).replace(',','.'));
   if(!(preco>=0)){ msg('msgCfg','Preço inválido.'); return; }
-  db.ref('equipeVendas/config').set({evento:document.getElementById('cfEvento').value.trim(),preco:preco})
+  const ds=document.getElementById('cfDS').value, pre=document.getElementById('cfPre').value;
+  if(!ds || !pre){ msg('msgCfg','Informe as duas datas de corte.'); return; }
+  if(new Date(pre).getTime() < new Date(ds).getTime()){ msg('msgCfg','O limite da pré-venda deve ser depois do limite dos Dias da Sorte.'); return; }
+  db.ref('equipeVendas/config').update({evento:document.getElementById('cfEvento').value.trim(),preco:preco,diasSorteLimite:ds,preVendaLimite:pre})
     .then(()=>msg('msgCfg','Salvo!')).catch(erroDb);
+}
+function salvarParametros(){
+  const com=parseFloat(String(document.getElementById('cfComissao').value||'0').replace(',','.'));
+  const meta=parseInt(document.getElementById('cfMeta').value||'0',10);
+  if(!(com>=0 && com<=100)){ msg('msgPar','Comissão inválida (0 a 100).'); return; }
+  if(!(meta>=0)){ msg('msgPar','Meta inválida.'); return; }
+  db.ref('equipeVendas/config').update({comissaoPct:com,metaCartelas:meta}).then(()=>msg('msgPar','Salvo!')).catch(erroDb);
 }
 
 function prepararFoto(inp){
@@ -423,6 +549,7 @@ function desenhar(){
   document.getElementById('rTotal').textContent=tTotal;
   document.getElementById('rValor').textContent=moeda(vTotal);
   document.getElementById('rValorHoje').textContent=moeda(vHoje);
+  renderExtras(vTotal,fiadoTotal,tTotal,entTotal);
   document.getElementById('rFiado').textContent=moeda(fiadoTotal);
   document.getElementById('rAtraso').textContent=atrasados;
   fiadoList.sort((x,y)=>(x.c.dataPrevista||'9').localeCompare(y.c.dataPrevista||'9'));
@@ -480,21 +607,197 @@ function desenhar(){
   vendas.sort((a,b)=>b.c.ts-a.c.ts);
   document.getElementById('feed').innerHTML = vendas.slice(0,30).map(x=>{
     const d=new Date(x.c.ts);
-    return '<div class="item"><div><b>Cartela '+esc(x.n)+'</b> - '+esc(x.c.comprador)+'<small>'+esc(x.c.telefone)+' • '+esc(x.c.vendedorNome)+' • <b>'+esc(x.c.pagamento||'sem forma')+(x.c.pagamento==='Fiado'?' (prev. '+esc(fmtData(x.c.dataPrevista))+')':'')+'</b> • '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</small></div>'
+    return '<div class="item"><div><b>Cartela '+esc(x.n)+'</b> - '+esc(x.c.comprador)+'<small>'+esc(x.c.telefone)+' • '+esc(x.c.vendedorNome)+' • <b>'+esc(x.c.pagamento||'sem forma')+(x.c.pagamento==='Fiado'?' (prev. '+esc(fmtData(x.c.dataPrevista))+')':'')+'</b> • '+NOMEFASE[faseDe(x.c,limites())]+' • '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</small></div>'
       +'<div style="text-align:right">'+moeda(x.c.valor)+'<br><a href="#" style="color:#ffd24a;font-size:12px" onclick="alterarPagamento(\''+esc(x.n)+'\');return false">alterar pgto</a><br><a href="#" style="color:#ff8a80;font-size:12px" onclick="estornar(\''+esc(x.n)+'\');return false">estornar</a></div></div>';
   }).join('') || '<div style="color:#9db4d8">Nenhuma venda ainda.</div>';
 }
 
-function baixarCSV(){
-  const linhas=[['Cartela','Comprador','Telefone','Vendedor','Valor','Pagamento','Data prevista (fiado)','Data/Hora']];
-  Object.keys(cartelas).sort((a,b)=>a-b).forEach(n=>{
+
+/* ---------- ABAS ---------- */
+function abrirAba(ab){
+  document.querySelectorAll('[data-aba]').forEach(el=>el.classList.toggle('abaoff', el.getAttribute('data-aba')!==ab));
+  document.querySelectorAll('#barraAbas button').forEach(b=>b.classList.toggle('ativa', b.getAttribute('data-btn')===ab));
+  try{ localStorage.setItem('jd_adm_aba',ab); }catch(e){}
+  window.scrollTo(0,0);
+}
+
+/* ---------- FASES ---------- */
+const NOMEFASE={ds:'Dias da Sorte (pré-venda)',pre:'Pré-venda',dia:'Venda no dia do Bingão'};
+function limites(){
+  return {ds:new Date(config.diasSorteLimite||DS_DEF).getTime(), pre:new Date(config.preVendaLimite||PRE_DEF).getTime()};
+}
+// Regra: fiado NÃO pago nunca entra nos Dias da Sorte. Fiado pago conta pela data do pagamento.
+function faseDe(c,L){
+  const ts=c.ts||0;
+  const efetivo=(c.eraFiado && c.pagoEm) ? c.pagoEm : ts;
+  if(c.pagamento!=='Fiado' && efetivo<L.ds) return 'ds';
+  if(ts<L.pre) return 'pre';
+  return 'dia';
+}
+function fmtDH(ms){ const d=new Date(ms); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+
+function renderExtras(vTotal,fiadoTotal,tTotal,entTotal){
+  const L=limites();
+  const cont={ds:0,pre:0,dia:0}, val={ds:0,pre:0,dia:0};
+  const sel=(document.getElementById('selFase')||{}).value||'ds';
+  const lista=[];
+  Object.keys(cartelas).forEach(n=>{
     const c=cartelas[n]; if(!c||c.status==='devolvida') return;
-    linhas.push([n,c.comprador,c.telefone,c.vendedorNome,String(c.valor).replace('.',','),c.pagamento||'',c.dataPrevista||'',new Date(c.ts).toLocaleString('pt-BR')]);
+    const f=faseDe(c,L), v=Number(c.valor)||0;
+    cont[f]++; val[f]+=v;
+    if(sel==='todas' || sel===f || (sel==='pre' && f==='ds')) lista.push({n:n,c:c,f:f});
+  });
+  const preTotal=cont.ds+cont.pre, preVal=val.ds+val.pre;
+  document.getElementById('fDS').textContent=cont.ds;
+  document.getElementById('fPre').textContent=preTotal;
+  document.getElementById('fDia').textContent=cont.dia;
+  document.getElementById('fDSv').textContent=moeda(val.ds);
+  document.getElementById('fPrev').textContent=moeda(preVal);
+  document.getElementById('fDiav').textContent=moeda(val.dia);
+  document.getElementById('txtCortes').textContent='Dias da Sorte: vendidas antes de '+fmtDH(L.ds)+' • Pré-venda: antes de '+fmtDH(L.pre)+' • Venda no dia: a partir de '+fmtDH(L.pre)+'. Conta a data/hora em que a venda foi registrada. Fiado NÃO pago não entra nos Dias da Sorte; fiado pago conta pela data do pagamento.';
+  const titulos={ds:'🍀 DIAS DA SORTE - separar para sorteio (só cartelas pagas)',pre:'Pré-venda',dia:'Venda no dia do Bingão',todas:'Todas as vendas'};
+  document.getElementById('tituloLista').textContent=titulos[sel];
+  lista.sort((x,y)=>Number(x.n)-Number(y.n));
+  const fiadosL=lista.filter(x=>x.c.pagamento==='Fiado').length;
+  document.getElementById('resumoLista').textContent=lista.length+' cartela(s)'+(fiadosL?' • '+fiadosL+' ainda como FIADO (não paga/reservada)':'');
+  document.getElementById('tabFase').innerHTML=lista.map(x=>{
+    const c=x.c, fi=c.pagamento==='Fiado';
+    return '<tr class="'+(x.f==='ds'?'fs-ds':'')+'"><td><b>'+esc(x.n)+'</b>'+(x.f==='ds'?' 🍀':'')+'</td><td>'+esc(c.comprador)+'</td><td>'+esc(c.telefone)+'</td><td>'+esc(c.vendedorNome)+'</td><td>'+fmtDH(c.ts)+'</td><td>'+(fi?'<span class="atraso">FIADO</span>':esc(c.pagamento||'Pago'))+'</td></tr>';
+  }).join('') || '<tr><td colspan="6" style="color:#9db4d8">Nenhuma cartela nesta fase.</td></tr>';
+
+  // fiados reservados antes do corte: ainda NÃO entram nos Dias da Sorte
+  const fora=[];
+  Object.keys(cartelas).forEach(n=>{ const c=cartelas[n]; if(c&&c.status!=='devolvida'&&c.pagamento==='Fiado'&&(c.ts||0)<L.ds) fora.push({n:n,c:c}); });
+  fora.sort((x,y)=>Number(x.n)-Number(y.n));
+  document.getElementById('boxFiadoDS').innerHTML = (sel==='ds') ? (fora.length
+    ? '<div style="border:2px solid #ff8a80;border-radius:10px;padding:10px"><b class="ruim">⚠️ '+fora.length+' cartela(s) reservada(s) como FIADO - ainda FORA dos Dias da Sorte</b><div style="font-size:12px;color:#9db4d8;margin:4px 0 8px">Entram no sorteio somente se o pagamento for registrado antes de '+fmtDH(L.ds)+'.</div>'
+      +fora.map(x=>'<div class="item"><div><b>Cartela '+esc(x.n)+'</b> - '+esc(x.c.comprador)+'<small>'+esc(x.c.telefone)+' • vendedor '+esc(x.c.vendedorNome)+' • previsto '+esc(fmtData(x.c.dataPrevista))+'</small></div><div>'+moeda(x.c.valor)+'</div></div>').join('')+'</div>'
+    : '<div style="font-size:13px;color:#9db4d8">Nenhum fiado pendente antes do corte.</div>') : '';
+
+  renderDespesasEResultado(vTotal,fiadoTotal,tTotal,entTotal);
+}
+
+/* ---------- DESPESAS E RESULTADO OPERACIONAL ---------- */
+function addDespesa(){
+  const desc=document.getElementById('dsDesc').value.trim();
+  const valor=parseFloat(String(document.getElementById('dsValor').value).replace(',','.'));
+  if(desc.length<2){ msg('msgDesp','Informe a descrição.'); return; }
+  if(!(valor>0)){ msg('msgDesp','Informe um valor maior que zero.'); return; }
+  db.ref('equipeVendas/despesas').push({desc:desc,valor:valor,categoria:document.getElementById('dsCat').value,tipo:document.getElementById('dsTipo').value,ts:Date.now()})
+    .then(()=>{ document.getElementById('dsDesc').value=''; document.getElementById('dsValor').value=''; msg('msgDesp','Despesa adicionada.'); }).catch(erroDb);
+}
+function delDespesa(k){
+  if(!confirm('Excluir esta despesa?')) return;
+  db.ref('equipeVendas/despesas/'+k).remove().catch(erroDb);
+}
+function renderDespesasEResultado(vTotal,fiadoTotal,tTotal,entTotal){
+  let fixos=0, varU=0;
+  const ks=Object.keys(despesas).filter(k=>despesas[k]).sort((x,y)=>(despesas[x].ts||0)-(despesas[y].ts||0));
+  ks.forEach(k=>{ const d=despesas[k], v=Number(d.valor)||0; if(d.tipo==='variavel') varU+=v; else fixos+=v; });
+  document.getElementById('listaDespesas').innerHTML = ks.map(k=>{ const d=despesas[k];
+    return '<div class="item"><div><b>'+esc(d.desc)+'</b><small>'+esc(d.categoria)+' • '+(d.tipo==='variavel'?'Variável (por cartela)':'Fixa')+'</small></div><div style="text-align:right">'+moeda(d.valor)+(d.tipo==='variavel'?' /cartela':'')+'<br><a href="#" style="color:#ff8a80;font-size:12px" onclick="delDespesa(\''+esc(k)+'\');return false">excluir</a></div></div>';
+  }).join('') + (ks.length?'<div class="item"><div><b>Total fixas</b></div><div><b>'+moeda(fixos)+'</b></div></div><div class="item"><div><b>Total variáveis por cartela</b></div><div><b>'+moeda(varU)+'</b></div></div>':'<div style="color:#9db4d8;font-size:14px">Nenhuma despesa cadastrada.</div>');
+
+  const preco=Number(config.preco)||0;
+  const comPct=(Number(config.comissaoPct)||0)/100;
+  const meta=Number(config.metaCartelas)||entTotal||0;
+  const cvu=varU+preco*comPct;           // custo variável por cartela (inclui comissão)
+  const mc=preco-cvu;                    // margem por cartela
+  const pe= mc>0 ? Math.ceil(fixos/mc) : null;
+  const realizado = vTotal - fixos - varU*tTotal - comPct*vTotal;
+  const comFiado = (vTotal+fiadoTotal) - fixos - varU*tTotal - comPct*(vTotal+fiadoTotal);
+  const projetado = meta*preco - fixos - varU*meta - comPct*meta*preco;
+  const cor=v=>v>=0?'bom':'ruim';
+  const pct = pe ? Math.min(100, Math.round(tTotal/pe*100)) : 0;
+  let h='<div class="grade">'
+    +'<div class="kpi"><b>'+moeda(fixos)+'</b><span>Despesas fixas</span></div>'
+    +'<div class="kpi"><b>'+moeda(cvu)+'</b><span>Custo variável por cartela (com comissão)</span></div>'
+    +'<div class="kpi"><b>'+moeda(mc)+'</b><span>Sobra por cartela vendida</span></div>'
+    +'<div class="kpi"><b>'+(pe===null?'-':pe)+'</b><span>PONTO DE EQUILÍBRIO (cartelas)</span></div>'
+    +'<div class="kpi"><b>'+(pe===null?'-':moeda(pe*preco))+'</b><span>Ponto de equilíbrio (R$)</span></div>'
+    +'<div class="kpi"><b>'+tTotal+'</b><span>Cartelas vendidas até agora</span></div>'
+    +'</div>';
+  if(!preco) h+='<div class="msg erro" style="display:block">Defina o preço da cartela na aba Config.</div>';
+  else if(pe===null) h+='<div class="msg erro" style="display:block">Cada cartela custa mais do que o preço. Revise as despesas variáveis e a comissão.</div>';
+  else{
+    h+='<div style="margin-top:10px;font-size:14px">'+(tTotal>=pe?'✅ <b class="bom">Ponto de equilíbrio atingido!</b> Já passou '+(tTotal-pe)+' cartela(s).':'Faltam <b>'+(pe-tTotal)+'</b> cartela(s) para empatar as despesas.')+'</div>'
+      +'<div class="barra"><div style="width:'+pct+'%"></div></div><div style="font-size:12px;color:#9db4d8">'+pct+'% do ponto de equilíbrio</div>';
+  }
+  h+='<div style="margin-top:14px">'
+    +'<div class="item"><div><b>Lucro REALIZADO</b><small>só o que já entrou no caixa (fiado não conta)</small></div><div class="'+cor(realizado)+'"><b>'+moeda(realizado)+'</b></div></div>'
+    +'<div class="item"><div><b>Lucro se os fiados forem pagos</b><small>vendas até agora, incluindo '+moeda(fiadoTotal)+' a receber</small></div><div class="'+cor(comFiado)+'"><b>'+moeda(comFiado)+'</b></div></div>'
+    +'<div class="item"><div><b>Lucro PROJETADO</b><small>se vender a meta de '+meta+' cartelas</small></div><div class="'+cor(projetado)+'"><b>'+moeda(projetado)+'</b></div></div>'
+    +'</div>'
+    +'<div style="font-size:12px;color:#9db4d8;margin-top:10px">Ponto de equilíbrio = despesas fixas ÷ (preço − custo variável por cartela − comissão). Lucro = receita − despesas fixas − custos variáveis − comissão.'+(Number(config.metaCartelas)?'':' A meta ainda não foi definida; estou usando o total de cartelas entregues aos vendedores.')+'</div>';
+  document.getElementById('resultadoOp').innerHTML=h;
+}
+
+/* ---------- MODELO PARA TESTES ---------- */
+async function gerarTeste(){
+  if(!confirm('Gerar dados de TESTE (3 vendedores, vendas e despesas de exemplo)?')) return;
+  const preco=Number(config.preco)||20;
+  const upd={}, nomes=['Teste Ana','Teste Bruno','Teste Carla'];
+  const pool=[[2026,10,23,10,0],[2026,11,5,15,30],[2026,12,10,9,0],[2026,12,20,11,0],[2026,12,26,9,30],[2026,12,26,13,50],[2026,12,26,14,10],[2026,12,28,16,0],[2026,12,31,12,45],[2026,12,31,13,20],[2026,12,31,18,0]];
+  const formas=['Dinheiro','Pix','Cartão','Fiado','Pix','Fiado'];
+  const prevs=['2026-11-10','2027-01-10','2026-12-30'];
+  try{
+    for(let i=0;i<3;i++){
+      const key=db.ref('equipeVendas/vendedores').push().key;
+      const de=900000+i*100+1, ate=de+29;
+      upd['equipeVendas/vendedores/'+key]={nome:nomes[i],pinHash:await hashPin(key,'1234'),ativo:true,teste:true,criado:Date.now(),lotes:{l1:{de:de,ate:ate,data:Date.now()}}};
+      upd['equipeVendas/cadastros/'+key]={nomeCompleto:'Vendedor de Teste '+(i+1),rg:'000000'+(i+1),telefone:'(92) 90000-000'+(i+1),endereco:'Rua de Teste, '+(i+1)+' - Centro',foto:'',teste:true};
+      for(let k=0;k<26;k++){
+        const n=de+k;
+        if(k>=23){ upd['equipeVendas/cartelas/'+n]={vendedorId:key,vendedorNome:nomes[i],status:'devolvida',ts:Date.now(),teste:true}; continue; }
+        const p=pool[(k+i*3)%pool.length];
+        const f=formas[(k+i)%formas.length];
+        const d={vendedorId:key,vendedorNome:nomes[i],comprador:'Comprador Teste '+(i+1)+'-'+(k+1),telefone:'9290000'+String(i)+String(1000+k).slice(1),valor:preco,pagamento:f,ts:new Date(p[0],p[1]-1,p[2],p[3],p[4]).getTime(),status:'vendida',teste:true};
+        if(f==='Fiado') d.dataPrevista=prevs[k%prevs.length];
+        upd['equipeVendas/cartelas/'+n]=d;
+      }
+    }
+    [['Impressão das cartelas','Gráfica / impressão','fixa',1500],['Prêmios em dinheiro','Prêmios','fixa',5000],['Aluguel do local','Local / estrutura','fixa',1200],['Som e iluminação','Som / iluminação','fixa',800],['Divulgação (banner e redes)','Divulgação','fixa',400],['Brinde por cartela','Outros','variavel',0.5]].forEach(x=>{
+      const k=db.ref('equipeVendas/despesas').push().key;
+      upd['equipeVendas/despesas/'+k]={desc:x[0],categoria:x[1],tipo:x[2],valor:x[3],ts:Date.now(),teste:true};
+    });
+    await db.ref().update(upd);
+    msg('msgTeste','Dados de teste criados. Entre no app do vendedor com "Teste Ana" e PIN 1234.');
+    alert('Dados de teste criados!\n\nNo app do vendedor use:\nNome: Teste Ana (ou Teste Bruno / Teste Carla)\nPIN: 1234');
+  }catch(e){ erroDb(e); }
+}
+async function apagarTeste(){
+  if(!confirm('Apagar todos os dados de TESTE? (os dados reais não são afetados)')) return;
+  const upd={}, idsTeste={};
+  Object.keys(vendedores).forEach(id=>{ if(vendedores[id]&&vendedores[id].teste){ idsTeste[id]=1; upd['equipeVendas/vendedores/'+id]=null; upd['equipeVendas/cadastros/'+id]=null; } });
+  Object.keys(cartelas).forEach(n=>{ const c=cartelas[n]; if(c&&(c.teste||idsTeste[c.vendedorId])) upd['equipeVendas/cartelas/'+n]=null; });
+  Object.keys(despesas).forEach(k=>{ if(despesas[k]&&despesas[k].teste) upd['equipeVendas/despesas/'+k]=null; });
+  Object.keys(desistencias).forEach(k=>{ const d=desistencias[k]; if(d&&idsTeste[d.vendedorId]) upd['equipeVendas/desistencias/'+k]=null; });
+  Object.keys(conflitos).forEach(k=>{ const d=conflitos[k]; if(d&&idsTeste[d.vendedorId]) upd['equipeVendas/conflitos/'+k]=null; });
+  if(!Object.keys(upd).length){ msg('msgTeste','Não há dados de teste para apagar.'); return; }
+  db.ref().update(upd).then(()=>msg('msgTeste','Dados de teste apagados.')).catch(erroDb);
+}
+function zerarVendas(){
+  const r=prompt('ATENÇÃO: isso apaga TODAS as vendas, desistências e conflitos.\nVendedores, lotes e despesas continuam.\n\nPara confirmar, digite ZERAR:');
+  if(r!=='ZERAR'){ if(r!==null) alert('Cancelado: a palavra não foi digitada corretamente.'); return; }
+  Promise.all([db.ref('equipeVendas/cartelas').set(null),db.ref('equipeVendas/desistencias').set(null),db.ref('equipeVendas/conflitos').set(null)])
+    .then(()=>msg('msgTeste','Todas as vendas foram zeradas.')).catch(erroDb);
+}
+
+function baixarCSV(modo){
+  modo = modo || 'todas';
+  const L=limites();
+  const linhas=[['Cartela','Comprador','Telefone','Vendedor','Valor','Pagamento','Situação','Data prevista (fiado)','Data/Hora','Fase']];
+  Object.keys(cartelas).sort((x,y)=>x-y).forEach(n=>{
+    const c=cartelas[n]; if(!c||c.status==='devolvida') return;
+    const f=faseDe(c,L);
+    if(modo==='ds' && f!=='ds') return;
+    linhas.push([n,c.comprador,c.telefone,c.vendedorNome,String(c.valor).replace('.',','),c.pagamento||'',c.pagamento==='Fiado'?'FIADO - a receber':'Pago',c.dataPrevista||'',new Date(c.ts).toLocaleString('pt-BR'),NOMEFASE[f]]);
   });
   const csv='﻿'+linhas.map(l=>l.map(x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"').join(';')).join('\r\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  a.download='vendas-cartelas.csv'; document.body.appendChild(a); a.click(); a.remove();
+  const el=document.createElement('a');
+  el.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  el.download = modo==='ds' ? 'dias-da-sorte-cartelas.csv' : 'vendas-cartelas.csv';
+  document.body.appendChild(el); el.click(); el.remove();
 }
 </script>
 </body>
