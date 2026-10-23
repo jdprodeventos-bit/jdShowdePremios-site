@@ -150,7 +150,7 @@ td:first-child,th:first-child{text-align:left}
   <div class="card" data-aba="resumo">
     <h2>Desempenho por vendedor</h2>
     <div class="rolar"><table>
-      <thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas</th><th>Devolv.</th><th>Comigo</th><th>Hoje</th><th>Semana</th><th>Mês</th><th>Recebido</th><th>A receber</th></tr></thead>
+      <thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas</th><th>Devolv.</th><th>Comigo</th><th>Hoje</th><th>Semana</th><th>Mês</th><th>Recebido</th><th>A receber</th><th>Comissão (mês)</th></tr></thead>
       <tbody id="tabela"></tbody>
     </table></div>
   </div>
@@ -274,6 +274,7 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 let conflitos = {}, desistencias = {}, despesas = {};
+function pctCom(){ return (config.comissaoPct!=null && config.comissaoPct!=='' && !isNaN(Number(config.comissaoPct))) ? Number(config.comissaoPct) : 20; }
 const DS_DEF='2026-12-26T14:00', PRE_DEF='2026-12-31T13:00';
 let vendedores = {}, cartelas = {}, cadastros = {}, config = {evento:'',preco:0};
 let fotoNova = null, editId = null;
@@ -309,7 +310,7 @@ function escutar(){
     document.getElementById('cfPreco').value=config.preco||'';
     document.getElementById('cfDS').value=config.diasSorteLimite||DS_DEF;
     document.getElementById('cfPre').value=config.preVendaLimite||PRE_DEF;
-    document.getElementById('cfComissao').value=config.comissaoPct||'';
+    document.getElementById('cfComissao').value=pctCom();
     document.getElementById('cfMeta').value=config.metaCartelas||'';
     desenhar();
   });
@@ -595,7 +596,7 @@ function desenhar(){
 
   const rank=ids.slice().sort((a,b)=>st[b].mes-st[a].mes||st[b].vend-st[a].vend);
   document.getElementById('tabela').innerHTML = rank.map(id=>{ const s=st[id];
-    return '<tr><td>'+esc(vendedores[id].nome)+'</td><td>'+s.ent+'</td><td>'+s.vend+'</td><td>'+s.dev+'</td><td>'+Math.max(0,s.ent-s.vend-s.dev)+'</td><td>'+s.hoje+'</td><td>'+s.sem+'</td><td>'+s.mes+'</td><td>'+moeda(s.valor)+'</td><td>'+moeda(s.fiado)+'</td></tr>';
+    return '<tr><td>'+esc(vendedores[id].nome)+'</td><td>'+s.ent+'</td><td>'+s.vend+'</td><td>'+s.dev+'</td><td>'+Math.max(0,s.ent-s.vend-s.dev)+'</td><td>'+s.hoje+'</td><td>'+s.sem+'</td><td>'+s.mes+'</td><td>'+moeda(s.valor)+'</td><td>'+moeda(s.fiado)+'</td><td>'+moeda(s.valor*pctCom()/100)+'</td></tr>';
   }).join('');
 
   const ck=Object.keys(conflitos).filter(k=>conflitos[k]);
@@ -699,7 +700,7 @@ function renderDespesasEResultado(vTotal,fiadoTotal,tTotal,entTotal){
   }).join('') + (ks.length?'<div class="item"><div><b>Total fixas</b></div><div><b>'+moeda(fixos)+'</b></div></div><div class="item"><div><b>Total variáveis por cartela</b></div><div><b>'+moeda(varU)+'</b></div></div>':'<div style="color:#9db4d8;font-size:14px">Nenhuma despesa cadastrada.</div>');
 
   const preco=Number(config.preco)||0;
-  const comPct=(Number(config.comissaoPct)||0)/100;
+  const comPct=pctCom()/100;
   const meta=Number(config.metaCartelas)||entTotal||0;
   const cvu=varU+preco*comPct;           // custo variável por cartela (inclui comissão)
   const mc=preco-cvu;                    // margem por cartela

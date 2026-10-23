@@ -42,6 +42,14 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
 #banner{border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:14px;display:none}
 #banner button{margin-top:8px;padding:10px;font-size:14px}
 .pend{display:inline-block;background:#a66b00;border-radius:6px;padding:2px 6px;font-size:11px;margin-left:6px}
+.cab{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.cab img{height:74px;width:auto;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.cabnome{font-size:20px;font-weight:bold;color:#ffd24a;letter-spacing:1px;line-height:1.1}
+.cabsub{font-size:12px;color:#9db4d8}
+#modalComp{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:70;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:12px;overflow:auto}
+#modalComp img{width:100%;max-width:560px;border-radius:8px;background:#fff}
+#modalComp .bt{width:100%;max-width:560px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btcomp{width:auto;margin:6px 0 0;padding:6px 10px;font-size:12px;background:#2a6bd6;color:#fff}
 .atraso{color:#ff8a80;font-weight:bold}
 .btnx{width:auto;margin:4px 0 0;padding:4px 8px;font-size:11px;background:#a62b2b;color:#fff}
 </style>
@@ -51,8 +59,8 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
 
 <!-- LOGIN -->
 <div id="telaLogin">
-  <h1>🎟️ JD VENDAS</h1>
-  <div class="sub">Equipe de vendas - Bingo presencial</div>
+  <div class="cab"><img src="boneco.png" alt=""><div><div class="cabnome">BINGÃO DA VIRADA</div><div class="cabsub">JD Vendas • Equipe de vendas</div></div></div>
+  
   <div class="card">
     <label>Seu nome</label>
     <input id="logNome" type="text" autocomplete="off" placeholder="Ex.: Maria">
@@ -66,6 +74,7 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
 
 <!-- APP -->
 <div id="telaApp" class="oculto">
+  <div class="cab"><img src="boneco.png" alt=""><div><div class="cabnome">BINGÃO DA VIRADA</div><div class="cabsub">JD Vendas • Equipe de vendas</div></div></div>
   <div class="topo">
     <div><h1 style="text-align:left;margin:0" id="olaNome">Olá</h1><div class="sub" style="text-align:left;margin:0" id="nomeEvento"></div></div>
     <button class="b-cinza" onclick="sair()">Sair</button>
@@ -118,6 +127,17 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     </div>
   </div>
 
+  <div class="card" style="border:2px solid #4cd37b">
+    <h2 id="tituloCom">💰 Minha comissão</h2>
+    <div class="grade">
+      <div class="kpi"><b id="cHoje">R$ 0</b><span>Hoje</span></div>
+      <div class="kpi"><b id="cSem">R$ 0</b><span>Na semana</span></div>
+      <div class="kpi"><b id="cMes">R$ 0</b><span>No mês</span></div>
+      <div class="kpi"><b id="cFiado" style="color:#ffb74d">R$ 0</b><span>A liberar (fiados)</span></div>
+    </div>
+    <div id="txtCom" style="font-size:12px;color:#9db4d8;margin-top:8px"></div>
+  </div>
+
   <div class="card" id="cardFiado" style="display:none;border:2px solid #ffd24a">
     <h2>🤝 Fiados a receber</h2>
     <div id="totFiado" style="font-size:13px;color:#9db4d8;margin-bottom:6px"></div>
@@ -139,6 +159,17 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     <button class="b-ouro" onclick="formaEscolhida('Pix')">⚡ Pix</button>
     <button class="b-ouro" onclick="formaEscolhida('Cartão')">💳 Cartão</button>
     <button class="b-cinza" onclick="formaEscolhida('')">Cancelar</button>
+  </div>
+</div>
+
+<div id="modalComp">
+  <div style="color:#ffd24a;font-weight:bold;margin:4px 0 8px">🧾 Comprovante da venda</div>
+  <img id="compImg" alt="Comprovante">
+  <div class="bt">
+    <button class="b-ouro" onclick="compartilharComp()">📤 Enviar / Compartilhar</button>
+    <button class="b-azul" onclick="baixarComp()">⬇ Baixar imagem</button>
+    <button class="b-cinza" onclick="imprimirComp()">🖨 Imprimir</button>
+    <button class="b-cinza" onclick="fecharComp()">Fechar</button>
   </div>
 </div>
 
@@ -170,6 +201,7 @@ let config = {evento:'', preco:0};
 let minhasCartelas = {}; // numero -> dados (vindo do servidor)
 let escutando = false;
 let sincronizando = false;
+let ultimasTodas = {};
 let fila = lsGet(LS_FILA, []); // vendas feitas e ainda não enviadas
 
 function lsGet(k, def){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
@@ -301,6 +333,9 @@ function desenhar(){
 
   let rec=0; eu.lotes.forEach(l=>{ rec += (l.ate-l.de+1); });
   let vend=0, dev=0, hoje=0, sem=0, mes=0, valorMes=0;
+  let cHoje=0, cSem=0, cMes=0, cFiado=0;
+  const pct=pctCom();
+  ultimasTodas=todas;
   const iDia=inicioDia(), iSem=inicioSemana(), iMes=inicioMes();
   const listaHoje=[];
   Object.keys(todas).forEach(n=>{
@@ -312,7 +347,21 @@ function desenhar(){
     if(t>=iDia){ hoje++; listaHoje.push({n:n,c:c}); }
     if(t>=iSem) sem++;
     if(t>=iMes){ mes++; if(c.pagamento!=='Fiado') valorMes += Number(c.valor)||0; }
+    const com=(Number(c.valor)||0)*pct/100;
+    if(c.pagamento==='Fiado'){ cFiado+=com; }
+    else{
+      const tp=(c.eraFiado && c.pagoEm) ? c.pagoEm : t;
+      if(tp>=iDia) cHoje+=com;
+      if(tp>=iSem) cSem+=com;
+      if(tp>=iMes) cMes+=com;
+    }
   });
+  document.getElementById('cHoje').textContent=moeda(cHoje);
+  document.getElementById('cSem').textContent=moeda(cSem);
+  document.getElementById('cMes').textContent=moeda(cMes);
+  document.getElementById('cFiado').textContent=moeda(cFiado);
+  document.getElementById('tituloCom').textContent='💰 Minha comissão ('+String(pct).replace('.',',')+'%)';
+  document.getElementById('txtCom').textContent='Comissão de '+String(pct).replace('.',',')+'% sobre o valor de cada cartela paga. Cartelas fiadas só liberam a comissão quando forem pagas.';
   document.getElementById('kRec').textContent=rec;
   document.getElementById('kVend').textContent=vend;
   document.getElementById('kDev').textContent=dev;
@@ -327,6 +376,7 @@ function desenhar(){
   listaHoje.sort((a,b)=>b.c.ts-a.c.ts);
   document.getElementById('listaHoje').innerHTML = listaHoje.length
     ? listaHoje.map(x=>'<div class="item"><div><b>Cartela '+esc(x.n)+'</b>'+(x.c.pendente?'<span class="pend">⏳ não enviada</span>':'')+'<small>'+esc(x.c.comprador)+' • '+esc(x.c.telefone)+' • '+esc(x.c.pagamento||'-')+(x.c.pagamento==='Fiado'?' (prev. '+esc(fmtData(x.c.dataPrevista))+')':'')+'</small>'
+        +'<button class="btcomp" onclick="verComprovante(\''+esc(x.n)+'\')">🧾 Comprovante</button> '
         +(x.c.pendente?'<button class="btnx" onclick="cancelarPendente(\''+esc(x.n)+'\')">Cancelar esta venda</button>':'')
         +'</div><div>'+moeda(x.c.valor)+'</div></div>').join('')
     : '<div style="color:#9db4d8;font-size:14px">Nenhuma venda hoje.</div>';
@@ -340,7 +390,8 @@ function desenhar(){
     return '<div class="item" style="flex-direction:column;align-items:stretch"><div><b>Cartela '+esc(n)+'</b> • '+esc(c.comprador)
       +'<small>'+esc(c.telefone)+' • Previsto: <span class="'+(atr?'atraso':'')+'">'+esc(fmtData(c.dataPrevista))+(atr?' (ATRASADO)':'')+'</span></small></div>'
       +'<div class="linha"><button class="b-ouro" style="margin-top:6px;padding:10px;font-size:14px" onclick="receberFiado(\''+esc(n)+'\')">💰 Recebi</button>'
-      +'<button class="b-cinza" style="margin-top:6px;padding:10px;font-size:14px" onclick="desistirFiado(\''+esc(n)+'\')">↩️ Desistiu</button></div></div>';
+      +'<button class="b-cinza" style="margin-top:6px;padding:10px;font-size:14px" onclick="desistirFiado(\''+esc(n)+'\')">↩️ Desistiu</button></div>'
+      +'<button class="btcomp" onclick="verComprovante(\''+esc(n)+'\')">🧾 Comprovante (reserva)</button></div>';
   }).join('');
   atualizarBanner();
 }
@@ -407,6 +458,7 @@ async function registrarVenda(){
   desenhar();
   if(!navigator.onLine){
     mostrar('msgVenda','📴 Sem internet: venda da cartela '+n+' salva no celular. Será enviada quando o sinal voltar.','aviso');
+    verComprovante(n,dados);
     return;
   }
   const r = await sincronizar();
@@ -415,11 +467,110 @@ async function registrarVenda(){
     mostrar('msgVenda','⚠️ A cartela '+n+' já estava vendida por outra pessoa. Avise o gerente.','erro');
   }else if(ainda){
     mostrar('msgVenda','Venda da cartela '+n+' salva no celular. Será enviada quando a conexão melhorar.','aviso');
+    verComprovante(n,dados);
   }else{
     mostrar('msgVenda','✅ Cartela '+n+' registrada!','ok');
+    verComprovante(n,dados);
   }
 }
 
+
+/* ---------- COMISSÃO ---------- */
+function pctCom(){ return (config.comissaoPct!=null && config.comissaoPct!=='' && !isNaN(Number(config.comissaoPct))) ? Number(config.comissaoPct) : 20; }
+
+/* ---------- COMPROVANTE (CANHOTO) ---------- */
+let compBlob=null, compNum=null;
+function carregarImg(src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>res(null); i.src=src; }); }
+function fmtTel(s){ const d=somenteNum(s); if(d.length===11) return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7); if(d.length===10) return '('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6); return s||''; }
+function ajustar(ctx,txt,maxW,tam,peso,estilo){
+  let s=tam;
+  while(s>14){ ctx.font=(estilo||'')+' '+peso+' '+s+'px Arial'; if(ctx.measureText(txt).width<=maxW) break; s-=2; }
+  ctx.font=(estilo||'')+' '+peso+' '+s+'px Arial';
+}
+async function montarComprovante(n,c){
+  const W=1200,H=620;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const x=cv.getContext('2d');
+  x.fillStyle='#ffffff'; x.fillRect(0,0,W,H);
+  // faixa dourada lateral (como no canhoto impresso)
+  const g=x.createLinearGradient(0,0,26,0); g.addColorStop(0,'#f0a020'); g.addColorStop(1,'#ffd24a');
+  x.fillStyle=g; x.fillRect(0,0,26,H);
+  // borda picotada
+  x.setLineDash([12,8]); x.strokeStyle='#777'; x.lineWidth=2; x.strokeRect(40,16,W-56,H-32); x.setLineDash([]);
+  // boneco
+  const img=await carregarImg('boneco.png');
+  let xi=70;
+  if(img){ const h=530, w=img.width*h/img.height; x.drawImage(img,58,50,w,h); xi=58+w+26; }
+  // título
+  x.textBaseline='alphabetic'; x.textAlign='left';
+  x.fillStyle='#0b1d3a'; ajustar(x,'BINGÃO DA VIRADA',455,58,'bold'); x.fillText('BINGÃO DA VIRADA',xi,96);
+  x.fillStyle='#e29a00'; x.fillRect(xi,108,400,6);
+  x.fillStyle='#444'; ajustar(x,(config.evento||'Edição 2026'),455,26,'normal'); x.fillText(config.evento||'Edição 2026',xi,146);
+  x.fillStyle='#0b1d3a'; x.font='bold 22px Arial'; x.fillText('COMPROVANTE DE COMPRA DE CARTELA',xi,182);
+  // selo da cartela
+  x.fillStyle='#ffe9a8'; x.strokeStyle='#e29a00'; x.lineWidth=4;
+  x.beginPath(); x.ellipse(1040,110,125,72,0,0,Math.PI*2); x.fill(); x.stroke();
+  x.fillStyle='#333'; x.textAlign='center'; x.font='bold 20px Arial'; x.fillText('CARTELA Nº',1040,78);
+  ajustar(x,String(n),200,64,'bold'); x.fillStyle='#0b1d3a'; x.fillText(String(n),1040,134);
+  x.textAlign='left';
+  // campos
+  const campos=[['Nome',c.comprador||''],['Telefone',fmtTel(c.telefone)],['Vendedor',c.vendedorNome||''],['Valor',moeda(c.valor)]];
+  const fiado=(c.pagamento==='Fiado');
+  campos.push(['Pagamento', fiado ? 'RESERVADA (FIADO) - pagar até '+fmtData(c.dataPrevista) : (c.eraFiado?'Pago - '+c.pagamento:'Pago - '+(c.pagamento||''))]);
+  const dh=new Date(c.ts||Date.now()).toLocaleDateString('pt-BR')+' às '+new Date(c.ts||Date.now()).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  x.fillStyle='#222'; x.font='bold 24px Arial'; x.fillText('Data/hora:',xi,252);
+  x.fillStyle='#1a2a8c'; x.font='italic 26px Arial'; x.fillText(dh,xi+x.measureText('Data/hora:').width+14,252);
+  let y=326;
+  campos.forEach(f=>{
+    x.fillStyle='#222'; x.font='bold 26px Arial'; x.fillText(f[0]+':',xi,y);
+    const lw=x.measureText(f[0]+':').width+12;
+    x.fillStyle='#1a2a8c'; ajustar(x,f[1],W-70-(xi+lw),30,'normal','italic'); x.fillText(f[1],xi+lw,y-2);
+    x.setLineDash([3,5]); x.strokeStyle='#555'; x.lineWidth=1.5; x.beginPath(); x.moveTo(xi+lw,y+8); x.lineTo(W-70,y+8); x.stroke(); x.setLineDash([]);
+    y+=52;
+  });
+  // carimbo
+  x.save(); x.translate(1040,252); x.rotate(-0.18);
+  x.strokeStyle=fiado?'#c0392b':'#1f8a3d'; x.fillStyle=fiado?'#c0392b':'#1f8a3d'; x.lineWidth=6;
+  x.strokeRect(-105,-38,210,76); x.textAlign='center'; x.font='bold 44px Arial'; x.fillText(fiado?'A PAGAR':'PAGO',0,15);
+  x.restore();
+  // rodapé
+  x.textAlign='left'; x.fillStyle='#555'; x.font='16px Arial';
+  const cod=n+'-'+(c.ts||0).toString(36).toUpperCase().slice(-5);
+  x.fillText('Guarde este comprovante como prova de compra da sua cartela.',xi,H-52);
+  x.fillText('Cód. '+cod+' • Cartela nº '+n+(fiado?' • Reserva: o pagamento deve ser feito até a data indicada.':''),xi,H-30);
+  return cv;
+}
+async function verComprovante(n,dados){
+  const c=dados || (ultimasTodas && ultimasTodas[n]) || minhasCartelas[n];
+  if(!c){ alert('Venda não encontrada.'); return; }
+  const cv=await montarComprovante(n,c);
+  compNum=n;
+  compBlob=await new Promise(r=>cv.toBlob(r,'image/png'));
+  document.getElementById('compImg').src=cv.toDataURL('image/png');
+  document.getElementById('modalComp').style.display='flex';
+}
+function fecharComp(){ document.getElementById('modalComp').style.display='none'; }
+function baixarComp(){
+  if(!compBlob) return;
+  const a=document.createElement('a'); a.href=URL.createObjectURL(compBlob);
+  a.download='comprovante-cartela-'+compNum+'.png'; document.body.appendChild(a); a.click(); a.remove();
+}
+async function compartilharComp(){
+  if(!compBlob) return;
+  const f=new File([compBlob],'comprovante-cartela-'+compNum+'.png',{type:'image/png'});
+  if(navigator.canShare && navigator.canShare({files:[f]})){
+    try{ await navigator.share({files:[f],title:'Comprovante - Bingão da Virada'}); }catch(e){}
+  }else{
+    baixarComp();
+    alert('Seu aparelho não permite compartilhar direto. A imagem foi baixada: envie pelo WhatsApp a partir da galeria.');
+  }
+}
+function imprimirComp(){
+  const w=window.open('','_blank');
+  if(!w){ alert('Libere pop-ups para imprimir, ou use "Baixar imagem".'); return; }
+  w.document.write('<html><body style="margin:0"><img src="'+document.getElementById('compImg').src+'" style="width:100%" onload="window.print()"></body></html>');
+  w.document.close();
+}
 
 /* ---------- FIADO ---------- */
 function hojeStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
