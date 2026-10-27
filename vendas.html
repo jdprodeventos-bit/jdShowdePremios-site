@@ -46,6 +46,15 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
 .cab img{height:74px;width:auto;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
 .cabnome{font-size:20px;font-weight:bold;color:#ffd24a;letter-spacing:1px;line-height:1.1}
 .cabsub{font-size:12px;color:#9db4d8}
+
+#modalParabens{position:fixed;inset:0;background:rgba(5,14,35,.93);z-index:80;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;overflow:hidden}
+#modalParabens .bn{height:42vh;max-height:340px;width:auto;filter:drop-shadow(0 10px 18px rgba(0,0,0,.6));animation:pulinho .55s ease-in-out infinite alternate}
+#modalParabens .tt{font-size:34px;font-weight:900;color:#ffd24a;letter-spacing:1px;line-height:1.1;margin-top:10px;text-shadow:0 3px 0 #8a5200}
+#modalParabens .st{font-size:17px;color:#fff;margin-top:8px}
+#modalParabens .sm{font-size:12px;color:#9db4d8;margin-top:14px}
+@keyframes pulinho{from{transform:translateY(0) rotate(-3deg)}to{transform:translateY(-18px) rotate(3deg)}}
+@keyframes cair{to{transform:translateY(110vh) rotate(720deg)}}
+.confete{position:absolute;top:-24px;width:10px;height:16px;border-radius:2px;animation:cair linear forwards}
 #modalComp{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:70;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:12px;overflow:auto}
 #modalComp img{width:100%;max-width:560px;border-radius:8px;background:#fff}
 #modalComp .bt{width:100%;max-width:560px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -94,6 +103,9 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     <input id="vNome" type="text" autocomplete="off" placeholder="Nome completo">
     <label>Telefone do comprador (com DDD)</label>
     <input id="vTel" type="tel" inputmode="numeric" placeholder="(92) 99999-9999">
+    <label>Comunidade do comprador <span style="color:#9db4d8">(opcional)</span></label>
+    <input id="vCom" type="text" autocomplete="off" list="listaComun" maxlength="60" placeholder="Ex.: Sede, ou nome da comunidade">
+    <datalist id="listaComun"></datalist>
     <label>Forma de pagamento</label>
     <select id="vPag" onchange="mudouPag()"><option value="">Selecione...</option><option>Dinheiro</option><option>Pix</option><option>Cartão</option><option>Fiado</option></select>
     <div id="boxPrev" class="oculto">
@@ -160,6 +172,13 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     <button class="b-ouro" onclick="formaEscolhida('Cartão')">💳 Cartão</button>
     <button class="b-cinza" onclick="formaEscolhida('')">Cancelar</button>
   </div>
+</div>
+
+<div id="modalParabens" onclick="fecharParabens()">
+  <img class="bn" src="boneco.png" alt="">
+  <div class="tt" id="parTit">PARABÉNS!</div>
+  <div class="st" id="parSub"></div>
+  <div class="sm">Toque para continuar</div>
 </div>
 
 <div id="modalComp">
@@ -325,6 +344,12 @@ function desenhar(){
   document.getElementById('olaNome').textContent = 'Olá, '+eu.nome;
   document.getElementById('nomeEvento').textContent = config.evento||'';
   document.getElementById('vPreco').textContent = moeda(config.preco);
+  try{
+    const dl=document.getElementById('listaComun'); const lst=['Sede'];
+    String(config.comunidades||'').split(/\r?\n/).forEach(x=>{ x=x.trim(); if(x && lst.indexOf(x)<0) lst.push(x); });
+    const chave=lst.join('|');
+    if(dl.getAttribute('data-k')!==chave){ dl.setAttribute('data-k',chave); dl.innerHTML=lst.map(x=>'<option value="'+esc(x)+'">').join(''); }
+  }catch(e){}
 
   // junta o que já está no servidor com o que está aguardando envio
   const todas = Object.assign({}, minhasCartelas);
@@ -375,7 +400,7 @@ function desenhar(){
     : 'Nenhum lote entregue a você ainda.';
   listaHoje.sort((a,b)=>b.c.ts-a.c.ts);
   document.getElementById('listaHoje').innerHTML = listaHoje.length
-    ? listaHoje.map(x=>'<div class="item"><div><b>Cartela '+esc(x.n)+'</b>'+(x.c.pendente?'<span class="pend">⏳ não enviada</span>':'')+'<small>'+esc(x.c.comprador)+' • '+esc(x.c.telefone)+' • '+esc(x.c.pagamento||'-')+(x.c.pagamento==='Fiado'?' (prev. '+esc(fmtData(x.c.dataPrevista))+')':'')+'</small>'
+    ? listaHoje.map(x=>'<div class="item"><div><b>Cartela '+esc(x.n)+'</b>'+(x.c.pendente?'<span class="pend">⏳ não enviada</span>':'')+'<small>'+esc(x.c.comprador)+' • '+esc(x.c.telefone)+' • '+esc(x.c.pagamento||'-')+(x.c.pagamento==='Fiado'?' (prev. '+esc(fmtData(x.c.dataPrevista))+')':'')+(x.c.comunidade?' • 📍 '+esc(x.c.comunidade):'')+'</small>'
         +'<button class="btcomp" onclick="verComprovante(\''+esc(x.n)+'\')">🧾 Comprovante</button> '
         +(x.c.pendente?'<button class="btnx" onclick="cancelarPendente(\''+esc(x.n)+'\')">Cancelar esta venda</button>':'')
         +'</div><div>'+moeda(x.c.valor)+'</div></div>').join('')
@@ -424,6 +449,29 @@ function jaVendida(n){
   const c=minhasCartelas[n];
   return !!(c && c.status!=='devolvida');
 }
+/* ---------- PARABÉNS A CADA VENDA ---------- */
+let parTimer=null;
+function festejar(n,dados){
+  try{
+    const frases=['PARABÉNS, {n}!','ISSO AÍ, {n}!','MANDOU BEM, {n}!','É ASSIM QUE SE VENDE, {n}!','VENDA FEITA, {n}!','ARRASOU, {n}!','BOA, {n}!'];
+    const nome=String((eu&&eu.nome)||'').trim().split(/\s+/)[0]||'campeão';
+    const fiado=dados && dados.pagamento==='Fiado';
+    document.getElementById('parTit').textContent = fiado ? 'RESERVA FEITA, '+nome.toUpperCase()+'!' : frases[Math.floor(Math.random()*frases.length)].replace('{n}',nome.toUpperCase());
+    const com=(Number(dados&&dados.valor)||0)*pctCom()/100;
+    document.getElementById('parSub').innerHTML='Cartela <b>'+esc(n)+'</b> '+(fiado?'reservada':'vendida')+'!<br>'+(fiado?'Sua comissão de <b>'+moeda(com)+'</b> será liberada quando o cliente pagar.':'Você ganhou <b>'+moeda(com)+'</b> de comissão. 💰');
+    const m=document.getElementById('modalParabens');
+    m.querySelectorAll('.confete').forEach(e=>e.remove());
+    const cores=['#ffd24a','#ff5a36','#4cd37b','#5aa9ff','#ffffff','#f78fb3'];
+    for(let i=0;i<46;i++){ const c=document.createElement('div'); c.className='confete';
+      c.style.left=(Math.random()*100)+'%'; c.style.background=cores[i%cores.length];
+      c.style.animationDuration=(2.2+Math.random()*2.2)+'s'; c.style.animationDelay=(Math.random()*0.8)+'s'; m.appendChild(c); }
+    m.style.display='flex';
+    try{ if(navigator.vibrate) navigator.vibrate([80,60,80]); }catch(e){}
+    clearTimeout(parTimer); parTimer=setTimeout(fecharParabens,3800);
+  }catch(e){ console.error(e); }
+}
+function fecharParabens(){ clearTimeout(parTimer); const m=document.getElementById('modalParabens'); if(m) m.style.display='none'; }
+
 async function registrarVenda(){
   if(!eu){ return; }
   const n = parseInt(somenteNum(document.getElementById('vNum').value),10);
@@ -447,6 +495,8 @@ async function registrarVenda(){
     valor:Number(config.preco)||0, pagamento:pag, ts:Date.now(), status:'vendida'
   };
   if(pag==='Fiado') dados.dataPrevista=prev;
+  const com=document.getElementById('vCom').value.trim().slice(0,60);
+  if(com) dados.comunidade=com;
   fila.push({n:n, dados:dados});
   salvarFila();
   document.getElementById('vNum').value='';
@@ -458,7 +508,7 @@ async function registrarVenda(){
   desenhar();
   if(!navigator.onLine){
     mostrar('msgVenda','📴 Sem internet: venda da cartela '+n+' salva no celular. Será enviada quando o sinal voltar.','aviso');
-    verComprovante(n,dados);
+    verComprovante(n,dados); festejar(n,dados);
     return;
   }
   const r = await sincronizar();
@@ -467,10 +517,10 @@ async function registrarVenda(){
     mostrar('msgVenda','⚠️ A cartela '+n+' já estava vendida por outra pessoa. Avise o gerente.','erro');
   }else if(ainda){
     mostrar('msgVenda','Venda da cartela '+n+' salva no celular. Será enviada quando a conexão melhorar.','aviso');
-    verComprovante(n,dados);
+    verComprovante(n,dados); festejar(n,dados);
   }else{
     mostrar('msgVenda','✅ Cartela '+n+' registrada!','ok');
-    verComprovante(n,dados);
+    verComprovante(n,dados); festejar(n,dados);
   }
 }
 
