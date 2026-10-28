@@ -150,6 +150,18 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     <div id="txtCom" style="font-size:12px;color:#9db4d8;margin-top:8px"></div>
   </div>
 
+  <div class="card" style="border:2px solid #5aa9ff">
+    <h2>🏦 Prestação de contas</h2>
+    <div class="grade">
+      <div class="kpi"><b id="pcQtd">0</b><span>Cartelas pagas</span></div>
+      <div class="kpi"><b id="pcLiq">R$ 0</b><span>Líquido a prestar</span></div>
+      <div class="kpi"><b id="pcFeito" style="color:#4cd37b">R$ 0</b><span>Já prestado</span></div>
+      <div class="kpi"><b id="pcFalta">R$ 0</b><span>Falta prestar</span></div>
+    </div>
+    <div id="pcTxt" style="font-size:12px;color:#9db4d8;margin-top:8px"></div>
+    <div id="pcLista" style="margin-top:8px"></div>
+  </div>
+
   <div class="card" id="cardFiado" style="display:none;border:2px solid #ffd24a">
     <h2>🤝 Fiados a receber</h2>
     <div id="totFiado" style="font-size:13px;color:#9db4d8;margin-bottom:6px"></div>
@@ -217,6 +229,7 @@ const LS_CACHE = 'jd_vendas_cache';
 
 let eu = null;           // {id, nome, lotes:[{de,ate}]}
 let config = {evento:'', preco:0};
+let meusAcertos = {};
 let minhasCartelas = {}; // numero -> dados (vindo do servidor)
 let escutando = false;
 let sincronizando = false;
@@ -327,6 +340,10 @@ function iniciar(id){
     minhasCartelas = s.val()||{};
     desenhar();
   });
+  db.ref('equipeVendas/acertos').orderByChild('vendedorId').equalTo(id).on('value',s=>{
+    meusAcertos = s.val()||{};
+    desenhar();
+  });
   sincronizar();
 }
 
@@ -387,6 +404,19 @@ function desenhar(){
   document.getElementById('cFiado').textContent=moeda(cFiado);
   document.getElementById('tituloCom').textContent='💰 Minha comissão ('+String(pct).replace('.',',')+'%)';
   document.getElementById('txtCom').textContent='Comissão de '+String(pct).replace('.',',')+'% sobre o valor de cada cartela paga. Cartelas fiadas só liberam a comissão quando forem pagas.';
+  try{
+    let pq=0, pb=0; Object.keys(minhasCartelas).forEach(n=>{ const c=minhasCartelas[n]; if(!c||c.status==='devolvida'||c.pagamento==='Fiado') return; pq++; pb+=Number(c.valor)||0; });
+    const liq=pb-pb*pct/100;
+    let fq=0, fv=0; const ac=Object.keys(meusAcertos).map(k=>meusAcertos[k]).filter(Boolean).sort((a,b)=>(b.ts||0)-(a.ts||0));
+    ac.forEach(a=>{ fq+=Number(a.qtd)||0; fv+=Number(a.valor)||0; });
+    const falta=Math.round((liq-fv)*100)/100;
+    document.getElementById('pcQtd').textContent=pq;
+    document.getElementById('pcLiq').textContent=moeda(liq);
+    document.getElementById('pcFeito').textContent=moeda(fv);
+    const fe=document.getElementById('pcFalta'); fe.textContent=moeda(falta<0?0:falta); fe.style.color=falta>0.009?'#ff8a80':'#4cd37b';
+    document.getElementById('pcTxt').textContent='Líquido = valor das cartelas pagas menos a sua comissão de '+String(pct).replace('.',',')+'%. Já prestado: '+fq+' cartela(s) conferidas pelo gerente.'+(falta<-0.009?' Você prestou '+moeda(-falta)+' a mais que o líquido; fale com o gerente.':'');
+    document.getElementById('pcLista').innerHTML=ac.length?ac.slice(0,10).map(a=>'<div class="item"><div>'+new Date(a.ts||0).toLocaleDateString('pt-BR')+' • '+(Number(a.qtd)||0)+' cartela(s)'+(a.obs?'<small>'+esc(a.obs)+'</small>':'')+'</div><div>'+moeda(a.valor)+'</div></div>').join(''):'<div style="color:#9db4d8;font-size:13px">Nenhuma prestação registrada ainda.</div>';
+  }catch(e){ console.error(e); }
   document.getElementById('kRec').textContent=rec;
   document.getElementById('kVend').textContent=vend;
   document.getElementById('kDev').textContent=dev;

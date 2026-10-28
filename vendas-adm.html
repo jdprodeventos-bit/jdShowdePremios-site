@@ -77,6 +77,7 @@ td:first-child,th:first-child{text-align:left}
     <button data-btn="resumo" onclick="abrirAba('resumo')">📊 Resumo</button>
     <button data-btn="graficos" onclick="abrirAba('graficos')">📈 Gráficos</button>
     <button data-btn="sorteio" onclick="abrirAba('sorteio')">🎯 Sorteio</button>
+    <button data-btn="prestacao" onclick="abrirAba('prestacao')">🏦 Prestação</button>
     <button data-btn="fases" onclick="abrirAba('fases')">🍀 Fases</button>
     <button data-btn="fiados" onclick="abrirAba('fiados')">🤝 Fiados</button>
     <button data-btn="equipe" onclick="abrirAba('equipe')">👥 Equipe</button>
@@ -296,6 +297,36 @@ td:first-child,th:first-child{text-align:left}
     <div style="font-size:12px;color:#9db4d8;margin-top:6px">Cada linha precisa ter exatamente 16 números: o primeiro é o número da cartela e os outros 15 são a composição. Linhas fora disso são ignoradas e avisadas.</div>
   </div>
 
+  <!-- ABA PRESTAÇÃO DE CONTAS -->
+  <div class="card" data-aba="prestacao" style="border:2px solid #ffd24a">
+    <h2>🏦 Registrar prestação de contas</h2>
+    <label>Vendedor</label>
+    <select id="pcVend" onchange="sugerirPrestacao()"><option value="">Selecione...</option></select>
+    <div class="linha">
+      <div><label>Quantidade de cartelas</label><input id="pcQ" inputmode="numeric" placeholder="Ex.: 20"></div>
+      <div><label>Valor líquido entregue (R$)</label><input id="pcV" inputmode="decimal" placeholder="Ex.: 400"></div>
+    </div>
+    <label>Observação (opcional)</label>
+    <input id="pcObs" placeholder="Ex.: entregou em dinheiro / Pix">
+    <div id="pcSug" style="font-size:12px;color:#9db4d8;margin-top:6px"></div>
+    <button class="b-ouro" onclick="registrarPrestacao()">Registrar prestação</button>
+    <div id="msgPc" class="msg"></div>
+  </div>
+
+  <div class="card" data-aba="prestacao">
+    <h2>Situação por vendedor</h2>
+    <div class="rolar"><table>
+      <thead><tr><th>Vendedor</th><th>Pagas</th><th>Bruto</th><th>Comissão</th><th>Líquido a prestar</th><th>Prestou (cart.)</th><th>Prestou (R$)</th><th>Falta (cart.)</th><th>Falta (R$)</th></tr></thead>
+      <tbody id="tabPc"></tbody>
+    </table></div>
+    <div style="font-size:12px;color:#9db4d8;margin-top:6px">Conta só cartelas PAGAS (fiado entra quando for pago). Líquido a prestar = valor pago menos a comissão do vendedor. Vermelho = ainda deve ao caixa.</div>
+  </div>
+
+  <div class="card" data-aba="prestacao">
+    <h2>Histórico de prestações</h2>
+    <div id="listaPc"></div>
+  </div>
+
   <!-- ABA RESULTADO OPERACIONAL -->
   <div class="card" data-aba="resultado">
     <h2>💰 Despesas do evento</h2>
@@ -377,7 +408,7 @@ const db = firebase.database();
 let conflitos = {}, desistencias = {}, despesas = {};
 function pctCom(){ return (config.comissaoPct!=null && config.comissaoPct!=='' && !isNaN(Number(config.comissaoPct))) ? Number(config.comissaoPct) : 20; }
 const DS_DEF='2026-12-26T14:00', PRE_DEF='2026-12-31T13:00';
-let vendedores = {}, cartelas = {}, cadastros = {}, config = {evento:'',preco:0};
+let vendedores = {}, cartelas = {}, cadastros = {}, config = {evento:'',preco:0}, prestacoes = {};
 let fotoNova = null, editId = null;
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -422,6 +453,7 @@ function escutar(){
   db.ref('equipeVendas/conflitos').on('value',s=>{ conflitos=s.val()||{}; desenhar(); });
   db.ref('equipeVendas/cadastros').on('value',s=>{ cadastros=s.val()||{}; desenhar(); });
   db.ref('equipeVendas/cartelas').on('value',s=>{ cartelas=s.val()||{}; desenhar(); });
+  db.ref('equipeVendas/acertos').on('value',s=>{ prestacoes=s.val()||{}; renderPrestacao(); });
   escutarSorteio();
 }
 
@@ -667,6 +699,7 @@ function desenhar(){
   document.getElementById('rValor').textContent=moeda(vTotal);
   document.getElementById('rValorHoje').textContent=moeda(vHoje);
   renderExtras(vTotal,fiadoTotal,tTotal,entTotal);
+  try{ renderPrestacao(); }catch(e){ console.error(e); }
   try{ if(!document.querySelector('[data-aba="sorteio"]').classList.contains('abaoff')){ renderSorteio(); conferirCartela(); } }catch(e){}
   document.getElementById('rFiado').textContent=moeda(fiadoTotal);
   document.getElementById('rAtraso').textContent=atrasados;
@@ -1045,6 +1078,56 @@ function gerarMatrizTeste(){
   ns.forEach(n=>{ const s=new Set(); while(s.size<15) s.add(1+Math.floor(Math.random()*max)); upd['c'+n]=Array.from(s).join(','); });
   db.ref('equipeVendas/matriz').update(upd).then(()=>{ msg('msgMx','Matriz de teste criada.'); carregarMatriz(); }).catch(erroDb);
 }
+
+
+/* ---------- PRESTAÇÃO DE CONTAS ---------- */
+function calcPrestacao(){
+  const r={}; const pct=pctCom()/100;
+  Object.keys(vendedores).forEach(id=>{ r[id]={id:id,nome:vendedores[id].nome,q:0,b:0,pq:0,pv:0}; });
+  Object.keys(cartelas).forEach(n=>{ const c=cartelas[n]; if(!c||c.status==='devolvida'||c.pagamento==='Fiado') return;
+    const id=c.vendedorId; const o=r[id]||(r[id]={id:id,nome:c.vendedorNome||'?',q:0,b:0,pq:0,pv:0}); o.q++; o.b+=Number(c.valor)||0; });
+  Object.keys(prestacoes).forEach(k=>{ const a=prestacoes[k]; if(!a) return;
+    const id=a.vendedorId; const o=r[id]||(r[id]={id:id,nome:a.vendedorNome||'?',q:0,b:0,pq:0,pv:0}); o.pq+=Number(a.qtd)||0; o.pv+=Number(a.valor)||0; });
+  Object.keys(r).forEach(id=>{ const o=r[id]; o.com=o.b*pct; o.liq=o.b-o.com; o.fq=o.q-o.pq; o.fv=Math.round((o.liq-o.pv)*100)/100; });
+  return r;
+}
+function renderPrestacao(){
+  if(!document.getElementById('tabPc')) return;
+  const r=calcPrestacao(), ids=Object.keys(r).sort((a,b)=>norm(r[a].nome).localeCompare(norm(r[b].nome)));
+  // seletor (preserva escolha)
+  const sel=document.getElementById('pcVend'), atual=sel.value;
+  const chave=ids.map(i=>i+':'+r[i].nome).join('|');
+  if(sel.getAttribute('data-k')!==chave){ sel.setAttribute('data-k',chave); sel.innerHTML='<option value="">Selecione...</option>'+ids.filter(i=>vendedores[i]).map(i=>'<option value="'+esc(i)+'">'+esc(r[i].nome)+'</option>').join(''); sel.value=atual; }
+  const T={q:0,b:0,com:0,liq:0,pq:0,pv:0,fq:0,fv:0};
+  document.getElementById('tabPc').innerHTML=ids.map(id=>{ const o=r[id]; Object.keys(T).forEach(k=>{ T[k]+=o[k]; });
+    return '<tr><td>'+esc(o.nome)+'</td><td>'+o.q+'</td><td>'+moeda(o.b)+'</td><td>'+moeda(o.com)+'</td><td><b>'+moeda(o.liq)+'</b></td><td>'+o.pq+'</td><td>'+moeda(o.pv)+'</td><td class="'+(o.fq>0?'ruim':'bom')+'">'+o.fq+'</td><td class="'+(o.fv>0.009?'ruim':'bom')+'"><b>'+moeda(o.fv)+'</b></td></tr>'; }).join('')
+    +(ids.length?'<tr style="font-weight:bold;background:#0b1d3a"><td>TOTAL</td><td>'+T.q+'</td><td>'+moeda(T.b)+'</td><td>'+moeda(T.com)+'</td><td>'+moeda(T.liq)+'</td><td>'+T.pq+'</td><td>'+moeda(T.pv)+'</td><td>'+T.fq+'</td><td>'+moeda(T.fv)+'</td></tr>':'<tr><td colspan="9" style="color:#9db4d8">Nenhum vendedor.</td></tr>');
+  const ks=Object.keys(prestacoes).filter(k=>prestacoes[k]).sort((a,b)=>(prestacoes[b].ts||0)-(prestacoes[a].ts||0));
+  document.getElementById('listaPc').innerHTML=ks.map(k=>{ const a=prestacoes[k];
+    return '<div class="item"><div><b>'+esc(a.vendedorNome)+'</b> • '+(Number(a.qtd)||0)+' cartela(s)<small>'+fmtDH(a.ts)+(a.obs?' • '+esc(a.obs):'')+'</small></div><div style="text-align:right">'+moeda(a.valor)+'<br><a href="#" style="color:#ff8a80;font-size:12px" onclick="excluirPrestacao(\''+esc(k)+'\');return false">excluir</a></div></div>'; }).join('')||'<div style="color:#9db4d8">Nenhuma prestação registrada.</div>';
+  sugerirPrestacao(true);
+}
+function sugerirPrestacao(soTexto){
+  const id=document.getElementById('pcVend').value, el=document.getElementById('pcSug');
+  if(!id){ el.textContent=''; return; }
+  const o=calcPrestacao()[id]; if(!o) return;
+  el.innerHTML='Falta prestar: <b>'+o.fq+'</b> cartela(s) e <b>'+moeda(o.fv)+'</b> (líquido de '+o.q+' pagas: '+moeda(o.liq)+', já prestou '+moeda(o.pv)+').'+(soTexto===true?'':' Valores sugeridos preenchidos.');
+  if(soTexto!==true){ document.getElementById('pcQ').value=o.fq>0?o.fq:''; document.getElementById('pcV').value=o.fv>0?String(o.fv).replace('.',','):''; }
+}
+function registrarPrestacao(){
+  const id=document.getElementById('pcVend').value;
+  const q=parseInt(document.getElementById('pcQ').value,10);
+  const v=parseFloat(String(document.getElementById('pcV').value).replace(',','.'));
+  if(!id){ msg('msgPc','Escolha o vendedor.'); return; }
+  if(!(q>=0) || isNaN(q)){ msg('msgPc','Informe a quantidade de cartelas.'); return; }
+  if(!(v>=0) || isNaN(v)){ msg('msgPc','Informe o valor líquido entregue.'); return; }
+  if(q===0 && v===0){ msg('msgPc','Informe a quantidade ou o valor.'); return; }
+  const nome=(vendedores[id]||{}).nome||'';
+  if(!confirm('Registrar que '+nome+' prestou contas de '+q+' cartela(s), valor líquido '+moeda(v)+'?')) return;
+  db.ref('equipeVendas/acertos').push({vendedorId:id,vendedorNome:nome,qtd:q,valor:v,obs:document.getElementById('pcObs').value.trim().slice(0,120),ts:Date.now()})
+    .then(()=>{ ['pcQ','pcV','pcObs'].forEach(i=>document.getElementById(i).value=''); msg('msgPc','✅ Prestação registrada.'); }).catch(erroDb);
+}
+function excluirPrestacao(k){ if(!confirm('Excluir esta prestação de contas?')) return; db.ref('equipeVendas/acertos/'+k).remove().catch(erroDb); }
 
 /* ---------- DESPESAS E RESULTADO OPERACIONAL ---------- */
 function addDespesa(){
