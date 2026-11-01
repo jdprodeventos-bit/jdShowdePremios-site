@@ -387,6 +387,12 @@ td:first-child,th:first-child{text-align:left}
     <div style="font-size:13px;color:#9db4d8">Limpeza de testes antigos feitos diretamente na equipe real (versões anteriores):</div>
     <button class="b-cinza" onclick="apagarTeste()">Apagar dados de teste antigos (da equipe REAL)</button>
     <hr style="border:0;border-top:1px solid #264a86;margin:14px 0">
+    <div style="border:2px solid #ff8a80;border-radius:10px;padding:10px">
+      <div style="font-size:13px;color:#ff8a80;margin-bottom:6px"><b>⚠️ ZERAR A EQUIPE REAL POR COMPLETO</b></div>
+      <div style="font-size:12px;color:#9db4d8">Apaga <b>todos</b> os vendedores da equipe real (inclusive cadastros e fotos), lotes, vendas, fiados, desistências, conflitos, despesas, prestações de contas, matriz e sorteio. Mantém só as configurações (preço, datas, comissão) e <b>não mexe</b> na equipe de treinamento. Não dá para desfazer.</div>
+      <button class="b-verm" onclick="limparEquipeReal()">🧹 LIMPAR EQUIPE REAL (zerar tudo)</button>
+    </div>
+    <hr style="border:0;border-top:1px solid #264a86;margin:14px 0">
     <div style="font-size:13px;color:#9db4d8">Zera as vendas, desistências e conflitos <b>da equipe que estiver aberta no topo</b> (real ou treinamento). Vendedores, lotes e despesas não são apagados.</div>
     <button class="b-verm" onclick="zerarVendas()">Zerar TODAS as vendas desta equipe</button>
     <div id="msgTeste" class="msg"></div>
@@ -1330,6 +1336,17 @@ function moverAmbiente(id){
     if(!confirm('Passar '+v.nome+' para a equipe REAL? Ele sai do treinamento e começa sem vendas e sem lotes reais (você distribui os lotes na equipe REAL). As vendas de treinamento dele não vão para os dados reais.')) return;
     db.ref('equipeVendas/vendedores/'+id+'/ambiente').set(null).catch(erroDb);
   }
+}
+async function limparEquipeReal(){
+  const reais=Object.keys(vendedoresAll).filter(id=>vendedoresAll[id]&&vendedoresAll[id].ambiente!=='treino');
+  let nc=0;
+  try{ const sn=await db.ref('equipeVendas/cartelas').once('value'); nc=Object.keys(sn.val()||{}).length; }catch(e){ erroDb(e); return; }
+  const r=prompt('ZERAR A EQUIPE REAL\n\nSerão APAGADOS para sempre:\n• '+reais.length+' vendedor(es) da equipe real (com cadastro, foto e lotes)\n• '+nc+' cartela(s) registrada(s) (vendas, fiados e devoluções)\n• despesas, prestações de contas, desistências, conflitos, matriz e sorteio da equipe real\n\nA equipe de TREINAMENTO e as configurações não são alteradas.\n\nPara confirmar, digite LIMPAR:');
+  if(r!=='LIMPAR'){ if(r!==null) alert('Cancelado: a palavra não foi digitada corretamente.'); return; }
+  const upd={};
+  reais.forEach(id=>{ upd['equipeVendas/vendedores/'+id]=null; upd['equipeVendas/cadastros/'+id]=null; });
+  ['cartelas','desistencias','conflitos','despesas','acertos','matriz','sorteio'].forEach(k=>{ upd['equipeVendas/'+k]=null; });
+  db.ref().update(upd).then(()=>msg('msgTeste','🧹 Equipe REAL zerada: '+reais.length+' vendedor(es) e '+nc+' cartela(s) apagados.')).catch(erroDb);
 }
 function reiniciarTreino(){
   if(!Object.keys(vendedoresAll).some(id=>vendedoresAll[id]&&vendedoresAll[id].ambiente==='treino')){ msg('msgTeste','Não há vendedores de treinamento.'); return; }
