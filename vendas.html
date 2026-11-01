@@ -234,6 +234,9 @@ let minhasCartelas = {}; // numero -> dados (vindo do servidor)
 let escutando = false;
 let sincronizando = false;
 let ultimasTodas = {};
+let AMBV = 'real', lotesObj = {};
+function BV(){ return AMBV==='treino' ? 'equipeVendasTreino' : 'equipeVendas'; }
+function parseLotes(o){ const r=[]; Object.keys(o||{}).forEach(k=>{ if(o[k]) r.push({de:Number(o[k].de),ate:Number(o[k].ate)}); }); r.sort((a,b)=>a.de-b.de); return r; }
 let fila = lsGet(LS_FILA, []); // vendas feitas e ainda não enviadas
 
 function lsGet(k, def){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
@@ -262,7 +265,7 @@ function inicioSemana(){ const d=new Date(); d.setHours(0,0,0,0); const dia=d.ge
 function inicioMes(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(1); return d.getTime(); }
 
 /* ---------- FILA OFFLINE ---------- */
-function minhaFila(){ return eu ? fila.filter(i=>i.dados && i.dados.vendedorId===eu.id) : []; }
+function minhaFila(){ return eu ? fila.filter(i=>i.dados && i.dados.vendedorId===eu.id && (i.amb||'real')===AMBV) : []; }
 function salvarFila(){ lsSet(LS_FILA, fila); }
 
 /* ---------- LOGIN ---------- */
@@ -285,6 +288,7 @@ async function entrar(){
     const h = await hashPin(id,pin);
     if(h===v.pinHash){
       try{ localStorage.setItem('jd_vendas_id',id); }catch(e){}
+      AMBV = (v.ambiente==='treino') ? 'treino' : 'real';
       iniciar(id);
       return;
     }
@@ -305,7 +309,8 @@ async function restaurarSessao(){
   const ca = lsGet(LS_CACHE, null);
   if(ca && ca.id===id){
     // abre direto com os dados guardados (funciona sem internet)
-    eu = {id:ca.id, nome:ca.nome, lotes:ca.lotes||[]};
+    AMBV = (ca.amb==='treino') ? 'treino' : 'real';
+    eu = {id:ca.id, nome:ca.nome, lotes:ca.lotes||[], teste:AMBV==='treino', amb:AMBV};
     config = ca.config||config;
     minhasCartelas = ca.cartelas||{};
     iniciar(id);
@@ -313,7 +318,7 @@ async function restaurarSessao(){
   }
   try{
     const s = await comTempo(db.ref('equipeVendas/vendedores/'+id).once('value'), 12000);
-    if(s.exists() && s.val().ativo!==false) iniciar(id);
+    if(s.exists() && s.val().ativo!==false){ AMBV = (s.val().ambiente==='treino') ? 'treino' : 'real'; iniciar(id); }
   }catch(e){}
 }
 
@@ -325,26 +330,37 @@ function iniciar(id){
   db.ref('equipeVendas/vendedores/'+id).on('value',s=>{
     const v=s.val();
     if(!v || v.ativo===false){ sair(); return; }
-    const lotes = [];
-    const l = v.lotes||{};
-    Object.keys(l).forEach(k=>{ if(l[k]) lotes.push({de:Number(l[k].de),ate:Number(l[k].ate)}); });
-    lotes.sort((a,b)=>a.de-b.de);
-    eu = {id:id, nome:v.nome, lotes:lotes};
+    const amb=(v.ambiente==='treino')?'treino':'real';
+    if(amb!==AMBV){ trocouAmbiente(amb); return; }
+    if(amb==='real') lotesObj=v.lotes||{};
+    eu = {id:id, nome:v.nome, lotes:parseLotes(lotesObj), teste:amb==='treino', amb:amb};
     desenhar();
   });
   db.ref('equipeVendas/config').on('value',s=>{
     config = s.val()||{evento:'',preco:0};
     desenhar();
   });
-  db.ref('equipeVendas/cartelas').orderByChild('vendedorId').equalTo(id).on('value',s=>{
+  if(AMBV==='treino'){
+    db.ref('equipeVendasTreino/lotes/'+id).on('value',s=>{ lotesObj=s.val()||{}; if(eu){ eu.lotes=parseLotes(lotesObj); desenhar(); } });
+  }
+  db.ref(BV()+'/cartelas').orderByChild('vendedorId').equalTo(id).on('value',s=>{
     minhasCartelas = s.val()||{};
     desenhar();
   });
-  db.ref('equipeVendas/acertos').orderByChild('vendedorId').equalTo(id).on('value',s=>{
+  db.ref(BV()+'/acertos').orderByChild('vendedorId').equalTo(id).on('value',s=>{
     meusAcertos = s.val()||{};
     desenhar();
   });
   sincronizar();
+}
+
+let trocando=false;
+function trocouAmbiente(novo){
+  if(trocando) return; trocando=true;
+  try{ localStorage.removeItem(LS_CACHE); }catch(e){}
+  try{ fila = fila.filter(i=>!(i.dados && eu && i.dados.vendedorId===eu.id && (i.amb||'real')!==novo)); salvarFila(); }catch(e){}
+  alert(novo==='real' ? 'O treinamento foi encerrado. A partir de agora você está no ambiente REAL. O aplicativo vai reiniciar.' : 'Você foi colocado no ambiente de TREINAMENTO. O aplicativo vai reiniciar.');
+  location.reload();
 }
 
 function estaNoMeuLote(n){
@@ -354,12 +370,12 @@ function estaNoMeuLote(n){
 
 /* ---------- PAINEL ---------- */
 function desenhar(){
-  if(!eu) return;
+  if(!eu || trocando) return;
   // guarda uma cópia para uso sem internet
-  lsSet(LS_CACHE, {id:eu.id, nome:eu.nome, lotes:eu.lotes, config:config, cartelas:minhasCartelas});
+  lsSet(LS_CACHE, {id:eu.id, nome:eu.nome, amb:AMBV, lotes:eu.lotes, config:config, cartelas:minhasCartelas});
 
   document.getElementById('olaNome').textContent = 'Olá, '+eu.nome;
-  document.getElementById('nomeEvento').textContent = config.evento||'';
+  document.getElementById('nomeEvento').textContent = (config.evento||'')+(eu.teste?' • 🧪 MODO TREINAMENTO':'');
   document.getElementById('vPreco').textContent = moeda(config.preco);
   try{
     const dl=document.getElementById('listaComun'); const lst=['Sede'];
@@ -525,9 +541,10 @@ async function registrarVenda(){
     valor:Number(config.preco)||0, pagamento:pag, ts:Date.now(), status:'vendida'
   };
   if(pag==='Fiado') dados.dataPrevista=prev;
+  if(eu.teste) dados.teste=true;
   const com=document.getElementById('vCom').value.trim().slice(0,60);
   if(com) dados.comunidade=com;
-  fila.push({n:n, dados:dados});
+  fila.push({n:n, dados:dados, amb:AMBV});
   salvarFila();
   document.getElementById('vNum').value='';
   document.getElementById('vNome').value='';
@@ -667,7 +684,7 @@ function receberFiado(n){
   if(!navigator.onLine){ alert('Precisa de internet para registrar o recebimento.'); return; }
   escolherForma(async f=>{
     try{
-      const ref=db.ref('equipeVendas/cartelas/'+n);
+      const ref=db.ref(BV()+'/cartelas/'+n);
       const a=(await comTempo(ref.once('value'),12000)).val();
       if(!a || a.vendedorId!==eu.id || a.pagamento!=='Fiado'){ mostrar('msgFiado','Essa cartela não está mais como fiado.','erro'); return; }
       await comTempo(ref.update({pagamento:f, pagoEm:Date.now(), eraFiado:true}),12000);
@@ -679,13 +696,13 @@ async function desistirFiado(n){
   if(!navigator.onLine){ alert('Precisa de internet para registrar a desistência.'); return; }
   if(!confirm('O comprador desistiu da cartela '+n+'? Ela volta a ficar disponível com você para vender de novo.')) return;
   try{
-    const ref=db.ref('equipeVendas/cartelas/'+n);
+    const ref=db.ref(BV()+'/cartelas/'+n);
     const a=(await comTempo(ref.once('value'),12000)).val();
     if(!a || a.vendedorId!==eu.id || a.pagamento!=='Fiado'){ mostrar('msgFiado','Essa cartela não está mais como fiado.','erro'); return; }
-    const chave=db.ref('equipeVendas/desistencias').push().key;
+    const chave=db.ref(BV()+'/desistencias').push().key;
     const upd={};
-    upd['equipeVendas/cartelas/'+n]=null;
-    upd['equipeVendas/desistencias/'+chave]={n:Number(n), vendedorId:a.vendedorId, vendedorNome:a.vendedorNome, comprador:a.comprador, telefone:a.telefone, valor:a.valor, dataPrevista:a.dataPrevista||'', ts:a.ts, desistiuEm:Date.now()};
+    upd[BV()+'/cartelas/'+n]=null;
+    upd[BV()+'/desistencias/'+chave]={n:Number(n), vendedorId:a.vendedorId, vendedorNome:a.vendedorNome, comprador:a.comprador, telefone:a.telefone, valor:a.valor, dataPrevista:a.dataPrevista||'', ts:a.ts, desistiuEm:Date.now()};
     await comTempo(db.ref().update(upd),12000);
     mostrar('msgFiado','Cartela '+n+' liberada novamente.','ok');
   }catch(e){ mostrar('msgFiado','Sem conexão. Tente de novo com sinal.','erro'); }
@@ -696,7 +713,7 @@ function enviarItem(item){
   return new Promise(resolve=>{
     let fim=false;
     const t=setTimeout(()=>{ if(!fim){ fim=true; resolve('falha'); } },12000);
-    db.ref('equipeVendas/cartelas/'+item.n).transaction(atual=>{
+    db.ref(BV()+'/cartelas/'+item.n).transaction(atual=>{
       if(atual===null || (atual && atual.status==='devolvida')) return item.dados;
       // se foi este mesmo envio que já chegou antes, conta como sucesso
       if(atual && atual.vendedorId===item.dados.vendedorId && atual.ts===item.dados.ts) return atual;
@@ -724,7 +741,7 @@ async function sincronizar(manual){
       }else if(res==='conflito'){
         fila = fila.filter(i=>i!==item); r.conflitos.push(Number(item.n));
         try{
-          await comTempo(db.ref('equipeVendas/conflitos').push({
+          await comTempo(db.ref(BV()+'/conflitos').push({
             n:Number(item.n), vendedorId:item.dados.vendedorId, vendedorNome:item.dados.vendedorNome,
             comprador:item.dados.comprador, telefone:item.dados.telefone, valor:item.dados.valor, pagamento:item.dados.pagamento||'', dataPrevista:item.dados.dataPrevista||'',
             ts:item.dados.ts, registradoEm:Date.now()

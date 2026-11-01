@@ -73,6 +73,11 @@ td:first-child,th:first-child{text-align:left}
 
 <div id="painel" class="oculto">
   <div class="cab"><img src="boneco.png" alt=""><div><div class="cabnome">BINGÃO DA VIRADA</div><div class="cabsub">JD Vendas • Painel do Gerente</div></div></div>
+  <div class="abas" id="barraAmb" style="position:static;margin-bottom:6px">
+    <button id="ambReal" class="ativa" onclick="trocarAmbiente('real')">🟢 Equipe REAL</button>
+    <button id="ambTreino" onclick="trocarAmbiente('treino')">🧪 Equipe TREINAMENTO</button>
+  </div>
+  <div id="ambBanner" style="display:none;background:#6b4fbb;color:#fff;border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:13px"><b>🧪 AMBIENTE DE TREINAMENTO.</b> Vendas, lotes, despesas e prestações daqui são separados e não afetam os dados reais.</div>
   <div class="abas" id="barraAbas">
     <button data-btn="resumo" onclick="abrirAba('resumo')">📊 Resumo</button>
     <button data-btn="graficos" onclick="abrirAba('graficos')">📈 Gráficos</button>
@@ -362,15 +367,28 @@ td:first-child,th:first-child{text-align:left}
 
   <!-- ABA CONFIG: TESTES -->
   <div class="card" data-aba="config">
-    <h2>🧪 Modelo para testes</h2>
+    <h2>🧪 Equipe de TREINAMENTO</h2>
     <div style="font-size:13px;color:#9db4d8;margin-bottom:8px">
-      Gera 3 vendedores de teste (nomes "Teste Ana", "Teste Bruno" e "Teste Carla", PIN <b>1234</b>), cada um com um lote de cartelas e vendas em várias datas e formas de pagamento (inclusive fiados atrasados e vendas perto das datas de corte), mais despesas de exemplo. Os dados de teste ficam marcados e podem ser apagados sem mexer nos dados reais.
+      O treinamento funciona como uma segunda equipe, com <b>dados totalmente separados</b>: vendas, lotes, despesas, prestações e sorteio. Só o <b>cadastro e o PIN</b> dos vendedores são aproveitados. Use os botões <b>🟢 Equipe REAL</b> e <b>🧪 Equipe TREINAMENTO</b> no topo da tela para alternar a visão. Cada vendedor trabalha no ambiente em que estiver: quem está no treinamento vende e presta contas só no treinamento.
     </div>
-    <button class="b-azul" onclick="gerarTeste()">Gerar dados de teste</button>
-    <button class="b-cinza" onclick="apagarTeste()">Apagar dados de teste</button>
+    <div id="trInfo" style="font-size:13px;margin-bottom:8px"></div>
+    <label>Criar vendedores de treinamento (um nome por linha, até 15 no total)</label>
+    <textarea id="trNomes" rows="4" placeholder="Maria&#10;José&#10;Carlos" style="width:100%;padding:11px;font-size:15px;border-radius:8px;border:2px solid #2a4d8f;background:#0b1d3a;color:#fff;font-family:inherit"></textarea>
+    <div class="linha"><div><label>PIN de todos (4 a 8 números)</label><input id="trPin" inputmode="numeric" value="1234"></div></div>
+    <button class="b-ouro" onclick="criarVendedoresTreino()">Criar vendedores de treinamento</button>
+    <button class="b-azul" onclick="gerarTeste()">Gerar dados de exemplo (Ana, Carla e Pedro)</button>
+    <div style="font-size:12px;color:#9db4d8;margin-top:6px">Para treinar com vendedores que já estão cadastrados, use o botão "Passar para TREINAMENTO" no cartão do vendedor (aba Equipe).</div>
     <hr style="border:0;border-top:1px solid #264a86;margin:14px 0">
-    <div style="font-size:13px;color:#9db4d8">Antes de começar a vender de verdade, zere as vendas feitas durante os testes. Isso apaga todas as vendas, desistências e conflitos. Vendedores, lotes e despesas não são apagados.</div>
-    <button class="b-verm" onclick="zerarVendas()">Zerar TODAS as vendas</button>
+    <button class="b-cinza" onclick="reiniciarTreino()">Reiniciar treinamento (zera vendas e prestações)</button>
+    <button class="b-verm" onclick="encerrarTreinamento()">🏁 ENCERRAR TREINAMENTO</button>
+    <button class="b-cinza" onclick="reabrirTreinamento()">Reabrir treinamento</button>
+    <div style="font-size:12px;color:#9db4d8;margin-top:6px"><b>Encerrar:</b> apaga todos os dados de treinamento, tira o botão do treinamento do painel, passa os vendedores de treinamento para a equipe real (mantendo cadastro e PIN, sem lotes) e remove os vendedores de exemplo. A partir daí só valem os dados reais.</div>
+    <hr style="border:0;border-top:1px solid #264a86;margin:14px 0">
+    <div style="font-size:13px;color:#9db4d8">Limpeza de testes antigos feitos diretamente na equipe real (versões anteriores):</div>
+    <button class="b-cinza" onclick="apagarTeste()">Apagar dados de teste antigos (da equipe REAL)</button>
+    <hr style="border:0;border-top:1px solid #264a86;margin:14px 0">
+    <div style="font-size:13px;color:#9db4d8">Zera as vendas, desistências e conflitos <b>da equipe que estiver aberta no topo</b> (real ou treinamento). Vendedores, lotes e despesas não são apagados.</div>
+    <button class="b-verm" onclick="zerarVendas()">Zerar TODAS as vendas desta equipe</button>
     <div id="msgTeste" class="msg"></div>
   </div>
 
@@ -409,6 +427,12 @@ let conflitos = {}, desistencias = {}, despesas = {};
 function pctCom(){ return (config.comissaoPct!=null && config.comissaoPct!=='' && !isNaN(Number(config.comissaoPct))) ? Number(config.comissaoPct) : 20; }
 const DS_DEF='2026-12-26T14:00', PRE_DEF='2026-12-31T13:00';
 let vendedores = {}, cartelas = {}, cadastros = {}, config = {evento:'',preco:0}, prestacoes = {};
+let vendedoresAll = {}, lotesTreino = {}, refsAmb = [];
+let AMB = 'real'; try{ if(localStorage.getItem('jd_adm_amb')==='treino') AMB='treino'; }catch(e){}
+function B(){ return AMB==='treino' ? 'equipeVendasTreino' : 'equipeVendas'; }
+function lotesRaw(id){ return AMB==='treino' ? (lotesTreino[id]||{}) : ((vendedores[id]&&vendedores[id].lotes)||{}); }
+function lotesPath(id){ return AMB==='treino' ? 'equipeVendasTreino/lotes/'+id : 'equipeVendas/vendedores/'+id+'/lotes'; }
+function filtrarVendedores(){ vendedores={}; Object.keys(vendedoresAll).forEach(id=>{ const v=vendedoresAll[id]; if(v && ((v.ambiente==='treino')?'treino':'real')===AMB) vendedores[id]=v; }); }
 let fotoNova = null, editId = null;
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -445,16 +469,42 @@ function escutar(){
     document.getElementById('cfComissao').value=pctCom();
     document.getElementById('cfMeta').value=config.metaCartelas||'';
     { const t=document.getElementById('cfComunidades'); if(t && document.activeElement!==t) t.value=config.comunidades||''; }
+    try{ marcarAmbienteUI(); }catch(e){}
     desenhar();
   });
-  db.ref('equipeVendas/vendedores').on('value',s=>{ vendedores=s.val()||{}; desenhar(); });
-  db.ref('equipeVendas/despesas').on('value',s=>{ despesas=s.val()||{}; desenhar(); });
-  db.ref('equipeVendas/desistencias').on('value',s=>{ desistencias=s.val()||{}; desenhar(); });
-  db.ref('equipeVendas/conflitos').on('value',s=>{ conflitos=s.val()||{}; desenhar(); });
+  db.ref('equipeVendas/vendedores').on('value',s=>{ vendedoresAll=s.val()||{}; filtrarVendedores(); desenhar(); });
   db.ref('equipeVendas/cadastros').on('value',s=>{ cadastros=s.val()||{}; desenhar(); });
-  db.ref('equipeVendas/cartelas').on('value',s=>{ cartelas=s.val()||{}; desenhar(); });
-  db.ref('equipeVendas/acertos').on('value',s=>{ prestacoes=s.val()||{}; renderPrestacao(); });
+  marcarAmbienteUI();
+  escutarAmbiente();
+}
+function escutarAmbiente(){
+  refsAmb.forEach(r=>{ try{ r.off(); }catch(e){} }); refsAmb=[];
+  const o=(path,fn)=>{ const r=db.ref(path); r.on('value',fn); refsAmb.push(r); };
+  o(B()+'/despesas',s=>{ despesas=s.val()||{}; desenhar(); });
+  o(B()+'/desistencias',s=>{ desistencias=s.val()||{}; desenhar(); });
+  o(B()+'/conflitos',s=>{ conflitos=s.val()||{}; desenhar(); });
+  o(B()+'/cartelas',s=>{ cartelas=s.val()||{}; desenhar(); });
+  o(B()+'/acertos',s=>{ prestacoes=s.val()||{}; renderPrestacao(); });
+  if(AMB==='treino') o('equipeVendasTreino/lotes',s=>{ lotesTreino=s.val()||{}; desenhar(); });
   escutarSorteio();
+}
+function trocarAmbiente(a){
+  if(a==='treino' && config.treinamentoEncerrado){ alert('O treinamento foi encerrado. Para voltar a usá-lo, reabra o treinamento na aba Config.'); return; }
+  if(a===AMB) return;
+  AMB=a; try{ localStorage.setItem('jd_adm_amb',a); }catch(e){}
+  cartelas={}; despesas={}; desistencias={}; conflitos={}; prestacoes={}; matriz={}; lotesTreino={}; sorteio={numeros:'',max:75};
+  filtrarVendedores(); marcarAmbienteUI(); escutarAmbiente(); desenhar();
+  window.scrollTo(0,0);
+}
+function marcarAmbienteUI(){
+  const enc=!!config.treinamentoEncerrado;
+  if(AMB==='treino' && enc){ AMB='real'; try{ localStorage.setItem('jd_adm_amb','real'); }catch(e){} filtrarVendedores(); }
+  const bt=document.getElementById('ambTreino'), br=document.getElementById('ambReal'), bn=document.getElementById('ambBanner');
+  if(!bt) return;
+  bt.style.display=enc?'none':'';
+  br.className=AMB==='real'?'ativa':''; bt.className=AMB==='treino'?'ativa':'';
+  bn.style.display=AMB==='treino'?'block':'none';
+  document.body.style.background=AMB==='treino'?'#1b1138':'#0b1d3a';
 }
 
 function salvarConfig(){
@@ -526,7 +576,7 @@ async function cadastrarVendedor(){
   if(!dados.rg){ msg('msgVend','Informe o RG.'); return; }
   if(!dados.endereco){ msg('msgVend','Informe o endereço.'); return; }
   if(dados.telefone.replace(/\D/g,'').length<10){ msg('msgVend','Telefone inválido.'); return; }
-  for(const id in vendedores){ if(id!==editId && norm(vendedores[id].nome)===norm(nome)){ msg('msgVend','Já existe vendedor com esse nome de login.'); return; } }
+  for(const id in vendedoresAll){ if(id!==editId && vendedoresAll[id] && norm(vendedoresAll[id].nome)===norm(nome)){ msg('msgVend','Já existe vendedor com esse nome de login.'); return; } }
   try{
     if(editId){
       const id=editId;
@@ -545,7 +595,8 @@ async function cadastrarVendedor(){
       const h=await hashPin(ref.key,pin);
       dados.foto=fotoNova;
       await db.ref('equipeVendas/cadastros/'+ref.key).set(dados);
-      await ref.set({nome:nome,pinHash:h,ativo:true,criado:Date.now()});
+      const novo={nome:nome,pinHash:h,ativo:true,criado:Date.now()}; if(AMB==='treino') novo.ambiente='treino';
+      await ref.set(novo);
       limparForm(); msg('msgVend','Vendedor cadastrado!');
     }
   }catch(e){ erroDb(e); }
@@ -565,11 +616,12 @@ function excluirVendedor(id){
   if(temVenda){ alert('Este vendedor tem vendas registradas. Use "Desativar" em vez de excluir.'); return; }
   if(!confirm('Excluir o vendedor '+vendedores[id].nome+'?')) return;
   db.ref('equipeVendas/cadastros/'+id).remove();
+  if(AMB==='treino') db.ref('equipeVendasTreino/lotes/'+id).remove();
   db.ref('equipeVendas/vendedores/'+id).remove().catch(erroDb);
 }
 
 function lotesDe(id){
-  const l=(vendedores[id]&&vendedores[id].lotes)||{};
+  const l=lotesRaw(id);
   return Object.keys(l).filter(k=>l[k]).map(k=>({key:k,de:Number(l[k].de),ate:Number(l[k].ate)})).sort((a,b)=>a.de-b.de);
 }
 function entregarLote(id){
@@ -581,20 +633,20 @@ function entregarLote(id){
       if(de<=l.ate && ate>=l.de){ alert('Essa faixa se sobrepõe ao lote '+l.de+' a '+l.ate+' de '+vendedores[vid].nome+'.'); return; }
     }
   }
-  db.ref('equipeVendas/vendedores/'+id+'/lotes').push({de:de,ate:ate,data:Date.now()}).catch(erroDb);
+  db.ref(lotesPath(id)).push({de:de,ate:ate,data:Date.now()}).catch(erroDb);
 }
 function removerLote(id,key){
-  const l=vendedores[id].lotes[key];
+  const l=lotesRaw(id)[key];
   const temVenda=Object.keys(cartelas).some(n=>{ const c=cartelas[n]; return c&&c.status!=='devolvida'&&Number(n)>=l.de&&Number(n)<=l.ate; });
   if(temVenda){ alert('Há cartelas vendidas nesse lote. Não é possível remover.'); return; }
   if(!confirm('Remover o lote '+l.de+' a '+l.ate+'?')) return;
-  db.ref('equipeVendas/vendedores/'+id+'/lotes/'+key).remove().catch(erroDb);
+  db.ref(lotesPath(id)+'/'+key).remove().catch(erroDb);
 }
 function devolver(id){
   const n=parseInt(document.getElementById('dev_'+id).value,10);
   if(!(n>0)){ alert('Informe o número da cartela devolvida.'); return; }
   if(!lotesDe(id).some(l=>n>=l.de&&n<=l.ate)){ alert('A cartela '+n+' não está nos lotes deste vendedor.'); return; }
-  db.ref('equipeVendas/cartelas/'+n).transaction(atual=>{
+  db.ref(B()+'/cartelas/'+n).transaction(atual=>{
     if(atual===null) return {vendedorId:id,vendedorNome:vendedores[id].nome,status:'devolvida',ts:Date.now()};
     return; // vendida ou já devolvida: aborta
   }).then(r=>{
@@ -604,11 +656,11 @@ function devolver(id){
 }
 function desfazerDevolucao(n){
   if(!confirm('Desfazer devolução da cartela '+n+'?')) return;
-  db.ref('equipeVendas/cartelas/'+n).remove().catch(erroDb);
+  db.ref(B()+'/cartelas/'+n).remove().catch(erroDb);
 }
 function resolverConflito(k){
   if(!confirm('Marcar este conflito como resolvido?')) return;
-  db.ref('equipeVendas/conflitos/'+k).remove().catch(erroDb);
+  db.ref(B()+'/conflitos/'+k).remove().catch(erroDb);
 }
 const FORMAS=['Dinheiro','Pix','Cartão','Fiado'];
 function alterarComunidade(n){
@@ -617,7 +669,7 @@ function alterarComunidade(n){
   const r=prompt('Comunidade do comprador da cartela '+n+' ('+(c.comprador||'')+'):\n'+(sug?'Sugestões: '+sug+'\n':'')+'\n(deixe em branco para remover)',c.comunidade||'');
   if(r===null) return;
   const v=r.trim().slice(0,60);
-  db.ref('equipeVendas/cartelas/'+n+'/comunidade').set(v||null).catch(erroDb);
+  db.ref(B()+'/cartelas/'+n+'/comunidade').set(v||null).catch(erroDb);
 }
 function alterarPagamento(n){
   const c=cartelas[n];
@@ -625,7 +677,7 @@ function alterarPagamento(n){
   if(r===null) return;
   const f=FORMAS[parseInt(r,10)-1];
   if(!f){ alert('Opção inválida.'); return; }
-  db.ref('equipeVendas/cartelas/'+n+'/pagamento').set(f).catch(erroDb);
+  db.ref(B()+'/cartelas/'+n+'/pagamento').set(f).catch(erroDb);
 }
 
 /* ---------- FIADO ---------- */
@@ -636,7 +688,7 @@ function formaEscolhida(f){ const m=document.getElementById('modalForma'); m.sty
 
 function receberFiado(n){
   escolherForma(f=>{
-    const ref=db.ref('equipeVendas/cartelas/'+n);
+    const ref=db.ref(B()+'/cartelas/'+n);
     ref.once('value').then(s=>{
       const c=s.val();
       if(!c || c.pagamento!=='Fiado'){ alert('Essa cartela não está mais como fiado.'); return; }
@@ -648,15 +700,15 @@ function desistirFiado(n){
   const c=cartelas[n];
   if(!c||c.pagamento!=='Fiado'){ alert('Essa cartela não está como fiado.'); return; }
   if(!confirm('Registrar a desistência da cartela '+n+' ('+c.comprador+')? Ela volta a ficar disponível com o vendedor.')) return;
-  const chave=db.ref('equipeVendas/desistencias').push().key, upd={};
-  upd['equipeVendas/cartelas/'+n]=null;
-  upd['equipeVendas/desistencias/'+chave]={n:Number(n), vendedorId:c.vendedorId, vendedorNome:c.vendedorNome, comprador:c.comprador, telefone:c.telefone, valor:c.valor, dataPrevista:c.dataPrevista||'', ts:c.ts, desistiuEm:Date.now()};
+  const chave=db.ref(B()+'/desistencias').push().key, upd={};
+  upd[B()+'/cartelas/'+n]=null;
+  upd[B()+'/desistencias/'+chave]={n:Number(n), vendedorId:c.vendedorId, vendedorNome:c.vendedorNome, comprador:c.comprador, telefone:c.telefone, valor:c.valor, dataPrevista:c.dataPrevista||'', ts:c.ts, desistiuEm:Date.now()};
   db.ref().update(upd).catch(erroDb);
 }
 function estornar(n){
   const c=cartelas[n];
   if(!confirm('Estornar a venda da cartela '+n+' ('+c.comprador+')? Ela voltará a ficar com o vendedor.')) return;
-  db.ref('equipeVendas/cartelas/'+n).remove().catch(erroDb);
+  db.ref(B()+'/cartelas/'+n).remove().catch(erroDb);
 }
 
 function desenhar(){
@@ -700,6 +752,7 @@ function desenhar(){
   document.getElementById('rValorHoje').textContent=moeda(vHoje);
   renderExtras(vTotal,fiadoTotal,tTotal,entTotal);
   try{ renderPrestacao(); }catch(e){ console.error(e); }
+  try{ atualizarInfoTreino(); }catch(e){}
   try{ if(!document.querySelector('[data-aba="sorteio"]').classList.contains('abaoff')){ renderSorteio(); conferirCartela(); } }catch(e){}
   document.getElementById('rFiado').textContent=moeda(fiadoTotal);
   document.getElementById('rAtraso').textContent=atrasados;
@@ -728,8 +781,9 @@ function desenhar(){
   document.getElementById('listaVendedores').innerHTML = ids.length ? ids.map(id=>{
     const v=vendedores[id], s=st[id], cd=cadastros[id]||{};
     return '<div class="vend"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;align-items:center">'
-      +'<b>'+esc(v.nome)+(v.ativo===false?' <span class="tag" style="background:#a62b2b">desativado</span>':'')+'</b>'
+      +'<b>'+esc(v.nome)+(v.ativo===false?' <span class="tag" style="background:#a62b2b">desativado</span>':'')+(v.ambiente==='treino'?' <span class="tag" style="background:#6b4fbb">🧪 treinamento</span>':'')+'</b>'
       +'<div><button class="b-azul b-peq" onclick="editarVendedor(\''+id+'\')">Editar dados</button><button class="b-cinza b-peq" onclick="trocarPin(\''+id+'\')">Trocar PIN</button>'
+      +'<button class="b-azul b-peq" onclick="moverAmbiente(\''+id+'\')">'+(AMB==='treino'?'Passar para REAL':'Passar para TREINAMENTO')+'</button>'
       +'<button class="b-cinza b-peq" onclick="alternarAtivo(\''+id+'\')">'+(v.ativo===false?'Reativar':'Desativar')+'</button>'
       +'<button class="b-verm b-peq" onclick="excluirVendedor(\''+id+'\')">Excluir</button></div></div>'
       +'<div style="display:flex;gap:10px;align-items:center;margin:8px 0">'+(cd.foto?'<img src="'+esc(cd.foto)+'" style="width:64px;height:64px;object-fit:cover;border-radius:8px">':'')+'<div style="font-size:12px;color:#9db4d8">'+esc(cd.nomeCompleto||'')+'<br>RG: '+esc(cd.rg||'-')+' • Tel: '+esc(cd.telefone||'-')+'<br>'+esc(cd.endereco||'')+'</div></div>'
@@ -947,17 +1001,17 @@ let matriz={}, sorteio={numeros:'',max:75};
 function listaSorteados(){ return String(sorteio.numeros||'').split(',').map(x=>parseInt(x,10)).filter(x=>x>0); }
 function maxJogo(){ return Number(sorteio.max)>0?Number(sorteio.max):75; }
 function carregarMatriz(){
-  return db.ref('equipeVendas/matriz').once('value').then(sn=>{
+  return db.ref(B()+'/matriz').once('value').then(sn=>{
     matriz={}; const v=sn.val()||{};
     Object.keys(v).forEach(k=>{ if(!v[k]) return; const n=parseInt(String(k).replace(/\D/g,''),10); if(n) matriz[n]=String(v[k]).split(',').map(Number); });
     renderSorteio(); conferirCartela();
   }).catch(erroDb);
 }
 function escutarSorteio(){
-  db.ref('equipeVendas/sorteio').on('value',sn=>{ sorteio=sn.val()||{numeros:'',max:75}; renderSorteio(); conferirCartela(); });
+  { const r=db.ref(B()+'/sorteio'); r.on('value',sn=>{ sorteio=sn.val()||{numeros:'',max:75}; renderSorteio(); conferirCartela(); }); refsAmb.push(r); }
   carregarMatriz();
 }
-function salvarSorteio(lista){ return db.ref('equipeVendas/sorteio').update({numeros:lista.join(','),ts:Date.now()}).catch(erroDb); }
+function salvarSorteio(lista){ return db.ref(B()+'/sorteio').update({numeros:lista.join(','),ts:Date.now()}).catch(erroDb); }
 function alternarNumero(n){
   const l=listaSorteados(), i=l.indexOf(n);
   if(i>=0) l.splice(i,1); else l.push(n);
@@ -971,7 +1025,7 @@ function sortearDigitado(){
 }
 function desfazerUltimo(){ const l=listaSorteados(); if(!l.length) return; l.pop(); salvarSorteio(l); }
 function limparSorteio(){ if(!confirm('Apagar TODOS os números sorteados?')) return; salvarSorteio([]); }
-function salvarMax(){ const m=parseInt(document.getElementById('sxMax').value,10); if(m>=10 && m<=200) db.ref('equipeVendas/sorteio').update({max:m}).catch(erroDb); }
+function salvarMax(){ const m=parseInt(document.getElementById('sxMax').value,10); if(m>=10 && m<=200) db.ref(B()+'/sorteio').update({max:m}).catch(erroDb); }
 
 function situacaoCartela(n){
   const c=cartelas[n];
@@ -1058,7 +1112,7 @@ async function salvarMatriz(){
   try{
     for(let i=0;i<ks.length;i+=400){
       const upd={}; ks.slice(i,i+400).forEach(k=>{ upd['c'+k]=r.ok[k].join(','); });
-      await db.ref('equipeVendas/matriz').update(upd); feito+=Math.min(400,ks.length-i);
+      await db.ref(B()+'/matriz').update(upd); feito+=Math.min(400,ks.length-i);
       msg('msgMx','Salvando... '+feito+' de '+ks.length);
     }
     msg('msgMx','✅ '+ks.length+' cartelas salvas na matriz.');
@@ -1068,7 +1122,7 @@ async function salvarMatriz(){
 }
 function apagarMatriz(){
   if(!confirm('Apagar TODA a matriz das cartelas? Será preciso importar de novo.')) return;
-  db.ref('equipeVendas/matriz').remove().then(()=>{ matriz={}; renderSorteio(); conferirCartela(); msg('msgMx','Matriz apagada.'); }).catch(erroDb);
+  db.ref(B()+'/matriz').remove().then(()=>{ matriz={}; renderSorteio(); conferirCartela(); msg('msgMx','Matriz apagada.'); }).catch(erroDb);
 }
 function gerarMatrizTeste(){
   const ns=Object.keys(cartelas).filter(n=>cartelas[n]&&cartelas[n].teste);
@@ -1076,7 +1130,7 @@ function gerarMatrizTeste(){
   if(!confirm('Gerar matriz de TESTE (números aleatórios) para '+ns.length+' cartelas de teste?')) return;
   const max=maxJogo(), upd={};
   ns.forEach(n=>{ const s=new Set(); while(s.size<15) s.add(1+Math.floor(Math.random()*max)); upd['c'+n]=Array.from(s).join(','); });
-  db.ref('equipeVendas/matriz').update(upd).then(()=>{ msg('msgMx','Matriz de teste criada.'); carregarMatriz(); }).catch(erroDb);
+  db.ref(B()+'/matriz').update(upd).then(()=>{ msg('msgMx','Matriz de teste criada.'); carregarMatriz(); }).catch(erroDb);
 }
 
 
@@ -1124,10 +1178,10 @@ function registrarPrestacao(){
   if(q===0 && v===0){ msg('msgPc','Informe a quantidade ou o valor.'); return; }
   const nome=(vendedores[id]||{}).nome||'';
   if(!confirm('Registrar que '+nome+' prestou contas de '+q+' cartela(s), valor líquido '+moeda(v)+'?')) return;
-  db.ref('equipeVendas/acertos').push({vendedorId:id,vendedorNome:nome,qtd:q,valor:v,obs:document.getElementById('pcObs').value.trim().slice(0,120),ts:Date.now()})
+  db.ref(B()+'/acertos').push({vendedorId:id,vendedorNome:nome,qtd:q,valor:v,obs:document.getElementById('pcObs').value.trim().slice(0,120),ts:Date.now()})
     .then(()=>{ ['pcQ','pcV','pcObs'].forEach(i=>document.getElementById(i).value=''); msg('msgPc','✅ Prestação registrada.'); }).catch(erroDb);
 }
-function excluirPrestacao(k){ if(!confirm('Excluir esta prestação de contas?')) return; db.ref('equipeVendas/acertos/'+k).remove().catch(erroDb); }
+function excluirPrestacao(k){ if(!confirm('Excluir esta prestação de contas?')) return; db.ref(B()+'/acertos/'+k).remove().catch(erroDb); }
 
 /* ---------- DESPESAS E RESULTADO OPERACIONAL ---------- */
 function addDespesa(){
@@ -1135,12 +1189,12 @@ function addDespesa(){
   const valor=parseFloat(String(document.getElementById('dsValor').value).replace(',','.'));
   if(desc.length<2){ msg('msgDesp','Informe a descrição.'); return; }
   if(!(valor>0)){ msg('msgDesp','Informe um valor maior que zero.'); return; }
-  db.ref('equipeVendas/despesas').push({desc:desc,valor:valor,categoria:document.getElementById('dsCat').value,tipo:document.getElementById('dsTipo').value,ts:Date.now()})
+  db.ref(B()+'/despesas').push({desc:desc,valor:valor,categoria:document.getElementById('dsCat').value,tipo:document.getElementById('dsTipo').value,ts:Date.now()})
     .then(()=>{ document.getElementById('dsDesc').value=''; document.getElementById('dsValor').value=''; msg('msgDesp','Despesa adicionada.'); }).catch(erroDb);
 }
 function delDespesa(k){
   if(!confirm('Excluir esta despesa?')) return;
-  db.ref('equipeVendas/despesas/'+k).remove().catch(erroDb);
+  db.ref(B()+'/despesas/'+k).remove().catch(erroDb);
 }
 function renderDespesasEResultado(vTotal,fiadoTotal,tTotal,entTotal){
   let fixos=0, varU=0;
@@ -1189,51 +1243,121 @@ function renderDespesasEResultado(vTotal,fiadoTotal,tTotal,entTotal){
 /* ---------- MODELO PARA TESTES ---------- */
 async function gerarTeste(){
   if(!confirm('Gerar dados de TESTE (3 vendedores, vendas e despesas de exemplo)?')) return;
+  if(nTreino()+3>15){ alert('O limite é de 15 vendedores de teste/treinamento. Apague alguns antes.'); return; }
   const preco=Number(config.preco)||20;
-  const upd={}, nomes=['Teste Ana','Teste Bruno','Teste Carla'];
+  const upd={}, nomes=['Teste Ana','Teste Carla','Teste Pedro'];
   const pool=[[2026,10,23,10,0],[2026,11,5,15,30],[2026,12,10,9,0],[2026,12,20,11,0],[2026,12,26,9,30],[2026,12,26,13,50],[2026,12,26,14,10],[2026,12,28,16,0],[2026,12,31,12,45],[2026,12,31,13,20],[2026,12,31,18,0]];
   const formas=['Dinheiro','Pix','Cartão','Fiado','Pix','Fiado'];
   const prevs=['2026-11-10','2027-01-10','2026-12-30'];
   try{
     for(let i=0;i<3;i++){
       const key=db.ref('equipeVendas/vendedores').push().key;
-      const de=900000+i*100+1, ate=de+29;
-      upd['equipeVendas/vendedores/'+key]={nome:nomes[i],pinHash:await hashPin(key,'1234'),ativo:true,teste:true,criado:Date.now(),lotes:{l1:{de:de,ate:ate,data:Date.now()}}};
+      const de=1+i*100, ate=de+29;
+      upd['equipeVendas/vendedores/'+key]={nome:nomes[i],pinHash:await hashPin(key,'1234'),ativo:true,ambiente:'treino',exemplo:true,teste:true,criado:Date.now()};
+      upd['equipeVendasTreino/lotes/'+key+'/l1']={de:de,ate:ate,data:Date.now()};
       upd['equipeVendas/cadastros/'+key]={nomeCompleto:'Vendedor de Teste '+(i+1),rg:'000000'+(i+1),telefone:'(92) 90000-000'+(i+1),endereco:'Rua de Teste, '+(i+1)+' - Centro',foto:'',teste:true};
       for(let k=0;k<26;k++){
         const n=de+k;
-        if(k>=23){ upd['equipeVendas/cartelas/'+n]={vendedorId:key,vendedorNome:nomes[i],status:'devolvida',ts:Date.now(),teste:true}; continue; }
+        if(k>=23){ upd['equipeVendasTreino/cartelas/'+n]={vendedorId:key,vendedorNome:nomes[i],status:'devolvida',ts:Date.now(),teste:true}; continue; }
         const p=pool[(k+i*3)%pool.length];
         const f=formas[(k+i)%formas.length];
         const d={vendedorId:key,vendedorNome:nomes[i],comprador:'Comprador Teste '+(i+1)+'-'+(k+1),telefone:'9290000'+String(i)+String(1000+k).slice(1),valor:preco,pagamento:f,ts:new Date(p[0],p[1]-1,p[2],p[3],p[4]).getTime(),status:'vendida',teste:true};
         if(f==='Fiado') d.dataPrevista=prevs[k%prevs.length];
-        upd['equipeVendas/cartelas/'+n]=d;
+        upd['equipeVendasTreino/cartelas/'+n]=d;
       }
     }
     [['Impressão das cartelas','Gráfica / impressão','fixa',1500],['Prêmios em dinheiro','Prêmios','fixa',5000],['Aluguel do local','Local / estrutura','fixa',1200],['Som e iluminação','Som / iluminação','fixa',800],['Divulgação (banner e redes)','Divulgação','fixa',400],['Brinde por cartela','Outros','variavel',0.5]].forEach(x=>{
-      const k=db.ref('equipeVendas/despesas').push().key;
-      upd['equipeVendas/despesas/'+k]={desc:x[0],categoria:x[1],tipo:x[2],valor:x[3],ts:Date.now(),teste:true};
+      const k=db.ref('equipeVendasTreino/despesas').push().key;
+      upd[B()+'/despesas/'+k]={desc:x[0],categoria:x[1],tipo:x[2],valor:x[3],ts:Date.now(),teste:true};
     });
     await db.ref().update(upd);
-    msg('msgTeste','Dados de teste criados. Entre no app do vendedor com "Teste Ana" e PIN 1234.');
-    alert('Dados de teste criados!\n\nNo app do vendedor use:\nNome: Teste Ana (ou Teste Bruno / Teste Carla)\nPIN: 1234');
+    msg('msgTeste','Dados de exemplo criados no ambiente de TREINAMENTO. Toque em "Equipe TREINAMENTO" no topo para ver. Entre no app com "Teste Ana" e PIN 1234.');
+    alert('Dados de exemplo criados no ambiente de TREINAMENTO!\n\nNo app do vendedor use:\nNome: Teste Ana (ou Teste Carla / Teste Pedro)\nPIN: 1234');
   }catch(e){ erroDb(e); }
 }
 async function apagarTeste(){
   if(!confirm('Apagar todos os dados de TESTE? (os dados reais não são afetados)')) return;
   const upd={}, idsTeste={};
   Object.keys(vendedores).forEach(id=>{ if(vendedores[id]&&vendedores[id].teste){ idsTeste[id]=1; upd['equipeVendas/vendedores/'+id]=null; upd['equipeVendas/cadastros/'+id]=null; } });
-  Object.keys(cartelas).forEach(n=>{ const c=cartelas[n]; if(c&&(c.teste||idsTeste[c.vendedorId])) upd['equipeVendas/cartelas/'+n]=null; });
-  Object.keys(despesas).forEach(k=>{ if(despesas[k]&&despesas[k].teste) upd['equipeVendas/despesas/'+k]=null; });
-  Object.keys(desistencias).forEach(k=>{ const d=desistencias[k]; if(d&&idsTeste[d.vendedorId]) upd['equipeVendas/desistencias/'+k]=null; });
-  Object.keys(conflitos).forEach(k=>{ const d=conflitos[k]; if(d&&idsTeste[d.vendedorId]) upd['equipeVendas/conflitos/'+k]=null; });
+  Object.keys(cartelas).forEach(n=>{ const c=cartelas[n]; if(c&&(c.teste||idsTeste[c.vendedorId])){ upd[B()+'/cartelas/'+n]=null; if(matriz[n]) upd[B()+'/matriz/c'+n]=null; } });
+  Object.keys(despesas).forEach(k=>{ if(despesas[k]&&despesas[k].teste) upd[B()+'/despesas/'+k]=null; });
+  Object.keys(prestacoes).forEach(k=>{ const a=prestacoes[k]; if(a&&idsTeste[a.vendedorId]) upd[B()+'/acertos/'+k]=null; });
+  Object.keys(desistencias).forEach(k=>{ const d=desistencias[k]; if(d&&idsTeste[d.vendedorId]) upd[B()+'/desistencias/'+k]=null; });
+  Object.keys(conflitos).forEach(k=>{ const d=conflitos[k]; if(d&&idsTeste[d.vendedorId]) upd[B()+'/conflitos/'+k]=null; });
   if(!Object.keys(upd).length){ msg('msgTeste','Não há dados de teste para apagar.'); return; }
   db.ref().update(upd).then(()=>msg('msgTeste','Dados de teste apagados.')).catch(erroDb);
+}
+/* ---------- TREINAMENTO ---------- */
+function nTreino(){ return Object.keys(vendedoresAll).filter(id=>vendedoresAll[id]&&vendedoresAll[id].ambiente==='treino').length; }
+function atualizarInfoTreino(){
+  const e=document.getElementById('trInfo'); if(!e) return;
+  e.textContent = config.treinamentoEncerrado ? '🏁 Treinamento ENCERRADO. Só valem os dados reais.' : 'Vendedores na equipe de treinamento: '+nTreino()+' de 15 (restam '+Math.max(0,15-nTreino())+').';
+}
+async function criarVendedoresTreino(){
+  if(config.treinamentoEncerrado){ msg('msgTeste','O treinamento está encerrado. Reabra para criar vendedores.'); return; }
+  const nomes=[], vistos={};
+  document.getElementById('trNomes').value.split(/\r?\n/).forEach(x=>{ x=x.trim().replace(/\s+/g,' '); if(x && !vistos[norm(x)]){ vistos[norm(x)]=1; nomes.push(x.slice(0,40)); } });
+  const pin=document.getElementById('trPin').value.trim();
+  if(!nomes.length){ msg('msgTeste','Digite pelo menos um nome.'); return; }
+  if(!/^\d{4,8}$/.test(pin)){ msg('msgTeste','O PIN deve ter de 4 a 8 números.'); return; }
+  if(nTreino()+nomes.length>15){ msg('msgTeste','Limite de 15. Já existem '+nTreino()+' e você quer criar '+nomes.length+'.'); return; }
+  const existentes={}; Object.keys(vendedoresAll).forEach(id=>{ if(vendedoresAll[id]) existentes[norm(vendedoresAll[id].nome)]=1; });
+  const repetidos=nomes.filter(n=>existentes[norm(n)]);
+  if(repetidos.length){ msg('msgTeste','Já existe vendedor com o nome: '+repetidos.join(', ')+'. Use outro nome (ou use "Passar para TREINAMENTO" no vendedor já cadastrado).'); return; }
+  if(!confirm('Criar '+nomes.length+' vendedor(es) na equipe de TREINAMENTO com PIN '+pin+'?')) return;
+  try{
+    const upd={};
+    for(const nome of nomes){
+      const key=db.ref('equipeVendas/vendedores').push().key;
+      upd['equipeVendas/vendedores/'+key]={nome:nome,pinHash:await hashPin(key,pin),ativo:true,ambiente:'treino',criado:Date.now()};
+      upd['equipeVendas/cadastros/'+key]={nomeCompleto:nome,rg:'',telefone:'',endereco:'',foto:''};
+    }
+    await db.ref().update(upd);
+    document.getElementById('trNomes').value='';
+    msg('msgTeste','✅ '+nomes.length+' vendedor(es) criado(s) na equipe de TREINAMENTO. Toque em "Equipe TREINAMENTO" no topo e entregue os lotes na aba Equipe.');
+  }catch(e){ erroDb(e); }
+}
+function moverAmbiente(id){
+  const v=vendedoresAll[id]; if(!v) return;
+  if(AMB==='real'){
+    if(config.treinamentoEncerrado){ alert('O treinamento está encerrado.'); return; }
+    if(nTreino()>=15){ alert('A equipe de treinamento já tem 15 vendedores.'); return; }
+    const temVenda=Object.keys(cartelas).some(n=>cartelas[n]&&cartelas[n].vendedorId===id);
+    if(temVenda){ alert('Este vendedor tem vendas REAIS registradas e não pode ir para o treinamento.'); return; }
+    if(!confirm('Passar '+v.nome+' para a equipe de TREINAMENTO? O app dele vai passar a usar os dados de treinamento (os lotes reais dele ficam guardados).')) return;
+    db.ref('equipeVendas/vendedores/'+id+'/ambiente').set('treino').catch(erroDb);
+  }else{
+    if(!confirm('Passar '+v.nome+' para a equipe REAL? Ele sai do treinamento e começa sem vendas e sem lotes reais (você distribui os lotes na equipe REAL). As vendas de treinamento dele não vão para os dados reais.')) return;
+    db.ref('equipeVendas/vendedores/'+id+'/ambiente').set(null).catch(erroDb);
+  }
+}
+function reiniciarTreino(){
+  if(!Object.keys(vendedoresAll).some(id=>vendedoresAll[id]&&vendedoresAll[id].ambiente==='treino')){ msg('msgTeste','Não há vendedores de treinamento.'); return; }
+  if(!confirm('Apagar as vendas, prestações, desistências e sorteio do TREINAMENTO? Os vendedores, lotes e despesas de treinamento continuam. Os dados reais não são afetados.')) return;
+  const upd={}; ['cartelas','acertos','desistencias','conflitos','sorteio','matriz'].forEach(k=>{ upd['equipeVendasTreino/'+k]=null; });
+  db.ref().update(upd).then(()=>msg('msgTeste','Treinamento reiniciado.')).catch(erroDb);
+}
+function encerrarTreinamento(){
+  const tr=Object.keys(vendedoresAll).filter(id=>vendedoresAll[id]&&vendedoresAll[id].ambiente==='treino');
+  const ex=tr.filter(id=>vendedoresAll[id].exemplo), reais=tr.filter(id=>!vendedoresAll[id].exemplo);
+  const r=prompt('ENCERRAR O TREINAMENTO\n\n• Todas as vendas, lotes, despesas e prestações de TREINAMENTO serão APAGADAS.\n• '+reais.length+' vendedor(es) de treinamento passam para a equipe REAL (mantêm cadastro e PIN, sem lotes).\n• '+ex.length+' vendedor(es) de exemplo (Ana, Carla, Pedro) serão removidos.\n• Os dados REAIS não são alterados.\n\nPara confirmar, digite ENCERRAR:');
+  if(r!=='ENCERRAR'){ if(r!==null) alert('Cancelado: a palavra não foi digitada corretamente.'); return; }
+  const upd={};
+  ex.forEach(id=>{ upd['equipeVendas/vendedores/'+id]=null; upd['equipeVendas/cadastros/'+id]=null; });
+  reais.forEach(id=>{ upd['equipeVendas/vendedores/'+id+'/ambiente']=null; });
+  upd['equipeVendasTreino']=null;
+  upd['equipeVendas/config/treinamentoEncerrado']=true;
+  db.ref().update(upd).then(()=>{ msg('msgTeste','🏁 Treinamento encerrado. Agora valem apenas os dados reais.'); if(AMB==='treino') trocarAmbiente('real'); }).catch(erroDb);
+}
+function reabrirTreinamento(){
+  if(!config.treinamentoEncerrado){ msg('msgTeste','O treinamento não está encerrado.'); return; }
+  if(!confirm('Reabrir o treinamento? O botão "Equipe TREINAMENTO" volta a aparecer, com o ambiente de treinamento vazio.')) return;
+  db.ref('equipeVendas/config/treinamentoEncerrado').set(null).then(()=>msg('msgTeste','Treinamento reaberto.')).catch(erroDb);
 }
 function zerarVendas(){
   const r=prompt('ATENÇÃO: isso apaga TODAS as vendas, desistências e conflitos.\nVendedores, lotes e despesas continuam.\n\nPara confirmar, digite ZERAR:');
   if(r!=='ZERAR'){ if(r!==null) alert('Cancelado: a palavra não foi digitada corretamente.'); return; }
-  Promise.all([db.ref('equipeVendas/cartelas').set(null),db.ref('equipeVendas/desistencias').set(null),db.ref('equipeVendas/conflitos').set(null)])
+  Promise.all([db.ref(B()+'/cartelas').set(null),db.ref(B()+'/desistencias').set(null),db.ref(B()+'/conflitos').set(null)])
     .then(()=>msg('msgTeste','Todas as vendas foram zeradas.')).catch(erroDb);
 }
 
