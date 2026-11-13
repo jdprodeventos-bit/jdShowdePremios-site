@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>JD Vendas - Gerente</title>
+    <link rel="manifest" href="/manifest-gerente.webmanifest">
+    <meta name="theme-color" content="#0b1d3a">
+    <link rel="icon" href="/icone-vendas-192.png">
+    <link rel="apple-touch-icon" href="/apple-icone-vendas.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="JD Gerente">
+    <script src="/pwa.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <style>
@@ -72,7 +80,7 @@ td:first-child,th:first-child{text-align:left}
 </div>
 
 <div id="painel" class="oculto">
-  <div class="cab"><img src="boneco.png" alt=""><div><div class="cabnome">BINGÃO DA VIRADA</div><div class="cabsub">JD Vendas • Painel do Gerente</div></div></div>
+  <div class="cab"><img src="boneco.png" alt=""><div><div class="cabnome">BINGÃO DA VIRADA</div><div class="cabsub">JD Vendas • Painel do Gerente</div></div><button class="b-azul" style="margin-left:auto" onclick="iniciarTour()">❓ Tour</button></div>
   <div class="abas" id="barraAmb" style="position:static;margin-bottom:6px">
     <button id="ambReal" class="ativa" onclick="trocarAmbiente('real')">🟢 Equipe REAL</button>
     <button id="ambTreino" onclick="trocarAmbiente('treino')">🧪 Equipe TREINAMENTO</button>
@@ -86,7 +94,9 @@ td:first-child,th:first-child{text-align:left}
     <button data-btn="fases" onclick="abrirAba('fases')">🍀 Fases</button>
     <button data-btn="fiados" onclick="abrirAba('fiados')">🤝 Fiados</button>
     <button data-btn="equipe" onclick="abrirAba('equipe')">👥 Equipe</button>
+    <button data-btn="grupos" onclick="abrirAba('grupos')">🏆 Por equipe</button>
     <button data-btn="resultado" onclick="abrirAba('resultado')">💰 Resultado</button>
+    <button data-btn="checklist" onclick="abrirAba('checklist')">✅ Check-list</button>
     <button data-btn="config" onclick="abrirAba('config')">⚙️ Config</button>
   </div>
 
@@ -165,12 +175,49 @@ td:first-child,th:first-child{text-align:left}
       <div><label>Telefone</label><input id="nvTel" inputmode="tel" placeholder="(92) 99999-9999"></div>
     </div>
     <label>Endereço</label><input id="nvEnd" placeholder="Rua, número, bairro, cidade">
+    <label>👥 Equipe de vendas (opcional) - para quem vai trabalhar em grupo</label>
+    <input id="nvGrupo" list="listaGrupos" maxlength="40" autocomplete="off" placeholder="Ex.: Equipe Sede (deixe vazio se vende sozinho)">
+    <datalist id="listaGrupos"></datalist>
+    <div style="font-size:12px;color:#9db4d8;margin-top:4px">Digite o nome de uma equipe nova ou escolha uma que já existe. Vendedores com o mesmo nome de equipe ficam juntos.</div>
     <label>Foto do vendedor</label>
-    <input id="nvFoto" type="file" accept="image/*" capture="user" onchange="prepararFoto(this)">
+    <div class="linha">
+      <button type="button" class="b-azul" style="margin-top:0" onclick="document.getElementById('nvFotoCam').click()">📷 Tirar foto</button>
+      <button type="button" class="b-azul" style="margin-top:0" onclick="document.getElementById('nvFoto').click()">🖼 Escolher arquivo</button>
+    </div>
+    <input id="nvFotoCam" type="file" accept="image/*" capture="environment" style="display:none" onchange="prepararFoto(this)">
+    <input id="nvFoto" type="file" accept="image/*" style="display:none" onchange="prepararFoto(this)">
+    <div style="font-size:12px;color:#9db4d8;margin-top:4px">"Tirar foto" abre a câmera. "Escolher arquivo" abre a galeria do celular ou as pastas do notebook.</div>
     <img id="prevFoto" style="display:none;width:90px;height:90px;object-fit:cover;border-radius:10px;margin-top:8px">
     <div class="linha"><button class="b-ouro" id="btnCad" onclick="cadastrarVendedor()">Cadastrar</button>
     <button class="b-cinza oculto" id="btnCancEd" onclick="cancelarEdicao()">Cancelar edição</button></div>
     <div id="msgVend" class="msg"></div>
+  </div>
+
+  <!-- ABA RESULTADO POR EQUIPE -->
+  <div class="card" data-aba="grupos" style="border:2px solid #ffd24a">
+    <h2>🏆 Resultado por equipe</h2>
+    <div class="grade">
+      <div class="kpi"><b id="eqQtd">0</b><span>Equipes</span></div>
+      <div class="kpi"><b id="eqVendQtd">0</b><span>Vendedores em equipes</span></div>
+      <div class="kpi"><b id="eqVendidas">0</b><span>Vendidas pelas equipes</span></div>
+      <div class="kpi"><b id="eqPct">0%</b><span>Das vendas totais</span></div>
+    </div>
+    <div id="eqBarras" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card" data-aba="grupos">
+    <h2>Ranking das equipes</h2>
+    <div class="rolar"><table>
+      <thead><tr><th>Equipe</th><th>Vendedores</th><th>Entregues</th><th>Vendidas</th><th>% vendido</th><th>Hoje</th><th>Semana</th><th>Pagas</th><th>Fiado</th><th>Valor pago</th><th>Comissão</th><th>Líquido</th><th>Prestado</th><th>Falta prestar</th></tr></thead>
+      <tbody id="eqTabela"></tbody>
+    </table></div>
+    <div style="font-size:12px;color:#9db4d8;margin-top:6px">A equipe é a que está no cadastro do vendedor agora: se você trocar um vendedor de equipe, as vendas dele vão junto. "Fiado" mostra a quantidade de cartelas reservadas e o valor ainda a receber. Comissão, líquido e prestação contam só cartelas pagas. Vermelho = ainda deve ao caixa.</div>
+  </div>
+
+  <div class="card" data-aba="grupos">
+    <h2>Vendedores de cada equipe</h2>
+    <div style="font-size:12px;color:#9db4d8;margin-bottom:8px">Toque no nome da equipe para abrir ou fechar.</div>
+    <div id="eqDetalhe"></div>
   </div>
 
   <div class="card" data-aba="equipe">
@@ -335,9 +382,10 @@ td:first-child,th:first-child{text-align:left}
   <!-- ABA RESULTADO OPERACIONAL -->
   <div class="card" data-aba="resultado">
     <h2>💰 Despesas do evento</h2>
+    <label>Descrição</label><input id="dsDesc" placeholder="Ex.: Impressão das cartelas">
     <div class="linha">
-      <div><label>Descrição</label><input id="dsDesc" placeholder="Ex.: Impressão das cartelas"></div>
-      <div><label>Valor (R$)</label><input id="dsValor" inputmode="decimal" placeholder="Ex.: 1500"></div>
+      <div><label>Valor PLANEJADO (R$)</label><input id="dsValor" inputmode="decimal" placeholder="Ex.: 1500"></div>
+      <div><label>Valor REALIZADO (R$) - opcional</label><input id="dsReal" inputmode="decimal" placeholder="Preencha quando pagar"></div>
     </div>
     <div class="linha">
       <div><label>Categoria</label>
@@ -347,7 +395,59 @@ td:first-child,th:first-child{text-align:left}
     </div>
     <button class="b-ouro" onclick="addDespesa()">Adicionar despesa</button>
     <div id="msgDesp" class="msg"></div>
-    <div id="listaDespesas" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card" data-aba="resultado" style="border:2px solid #5aa9ff">
+    <h2>📋 Planejado x Realizado</h2>
+    <div id="dsResumo"></div>
+  </div>
+
+  <div class="card" data-aba="resultado">
+    <h2>Lista de despesas</h2>
+    <div class="linha" style="margin-bottom:8px">
+      <select id="dsFiltro" onchange="desenhar()"><option value="">Todas</option><option value="pend">Só as não pagas</option><option value="parc">Só as pagas em parte</option><option value="ok">Só as pagas</option></select>
+    </div>
+    <div class="rolar"><table>
+      <thead><tr><th>Despesa</th><th>Planejado</th><th>Realizado</th><th>Diferença</th><th>Situação</th><th></th></tr></thead>
+      <tbody id="listaDespesas"></tbody>
+    </table></div>
+    <div style="font-size:12px;color:#9db4d8;margin-top:6px">Diferença = realizado − planejado (aparece quando a despesa está paga; se foi paga em parte, mostra quanto falta). Vermelho = gastou mais do que o planejado; verde = economizou. Use <b>💵 Lançar pagamento</b> quando pagar (pode ser em partes) e <b>✏️ Planejado</b> para corrigir o valor previsto.</div>
+  </div>
+
+  <div class="card" data-aba="resultado">
+    <h2>Por categoria</h2>
+    <div class="rolar"><table>
+      <thead><tr><th>Categoria</th><th>Planejado</th><th>Realizado</th><th>Diferença prevista</th><th>% pago</th></tr></thead>
+      <tbody id="dsCategorias"></tbody>
+    </table></div>
+  </div>
+
+  <!-- ABA CHECK-LIST -->
+  <div class="card" data-aba="checklist" style="border:2px solid #4cd37b">
+    <h2>✅ Check-list do evento</h2>
+    <div id="ckResumo"></div>
+  </div>
+
+  <div class="card" data-aba="checklist">
+    <h2>Adicionar tarefa</h2>
+    <label>O que precisa ser providenciado</label>
+    <input id="ckTexto" maxlength="120" placeholder="Ex.: Retirar as cartelas na gráfica">
+    <div class="linha">
+      <div><label>Etapa</label>
+        <select id="ckEtapa"><option>Planejamento</option><option>Gráfica / cartelas</option><option>Prêmios</option><option>Local / estrutura</option><option>Som / iluminação</option><option>Divulgação</option><option>Vendedores</option><option>Documentação</option><option>Dia do evento</option><option>Pós-evento</option><option>Outros</option></select></div>
+      <div><label>Prazo (opcional)</label><input id="ckPrazo" type="date"></div>
+    </div>
+    <label>Responsável (opcional)</label>
+    <input id="ckResp" maxlength="40" placeholder="Ex.: João">
+    <button class="b-ouro" onclick="addTarefa()">Adicionar tarefa</button>
+    <div id="msgCk" class="msg"></div>
+    <button class="b-cinza" onclick="carregarSugestoes()">📋 Carregar lista sugerida para o Bingão</button>
+  </div>
+
+  <div class="card" data-aba="checklist">
+    <h2>Tarefas</h2>
+    <select id="ckFiltro" onchange="renderChecklist()"><option value="pend">Só as pendentes</option><option value="">Todas</option><option value="ok">Só as concluídas</option><option value="atr">Só as atrasadas</option></select>
+    <div id="ckLista" style="margin-top:10px"></div>
   </div>
 
   <div class="card" data-aba="resultado">
@@ -429,7 +529,7 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let conflitos = {}, desistencias = {}, despesas = {};
+let conflitos = {}, desistencias = {}, despesas = {}, checklist = {};
 function pctCom(){ return (config.comissaoPct!=null && config.comissaoPct!=='' && !isNaN(Number(config.comissaoPct))) ? Number(config.comissaoPct) : 20; }
 const DS_DEF='2026-12-26T14:00', PRE_DEF='2026-12-31T13:00';
 let vendedores = {}, cartelas = {}, cadastros = {}, config = {evento:'',preco:0}, prestacoes = {};
@@ -462,6 +562,8 @@ function entrar(){
     escutar();
     let ab='resumo'; try{ ab=localStorage.getItem('jd_adm_aba')||'resumo'; }catch(e){}
     abrirAba(ab);
+    let visto=false; try{ visto=localStorage.getItem('jd_tour_adm_visto')==='1'; }catch(e){}
+    if(!visto) setTimeout(iniciarTour,800);
   } else alert('Senha incorreta!');
 }
 
@@ -487,10 +589,11 @@ function escutarAmbiente(){
   refsAmb.forEach(r=>{ try{ r.off(); }catch(e){} }); refsAmb=[];
   const o=(path,fn)=>{ const r=db.ref(path); r.on('value',fn); refsAmb.push(r); };
   o(B()+'/despesas',s=>{ despesas=s.val()||{}; desenhar(); });
+  o(B()+'/checklist',s=>{ checklist=s.val()||{}; renderChecklist(); });
   o(B()+'/desistencias',s=>{ desistencias=s.val()||{}; desenhar(); });
   o(B()+'/conflitos',s=>{ conflitos=s.val()||{}; desenhar(); });
   o(B()+'/cartelas',s=>{ cartelas=s.val()||{}; desenhar(); });
-  o(B()+'/acertos',s=>{ prestacoes=s.val()||{}; renderPrestacao(); });
+  o(B()+'/acertos',s=>{ prestacoes=s.val()||{}; renderPrestacao(); try{ renderEquipes(); }catch(e){} });
   if(AMB==='treino') o('equipeVendasTreino/lotes',s=>{ lotesTreino=s.val()||{}; desenhar(); });
   escutarSorteio();
 }
@@ -498,7 +601,7 @@ function trocarAmbiente(a){
   if(a==='treino' && config.treinamentoEncerrado){ alert('O treinamento foi encerrado. Para voltar a usá-lo, reabra o treinamento na aba Config.'); return; }
   if(a===AMB) return;
   AMB=a; try{ localStorage.setItem('jd_adm_amb',a); }catch(e){}
-  cartelas={}; despesas={}; desistencias={}; conflitos={}; prestacoes={}; matriz={}; lotesTreino={}; sorteio={numeros:'',max:75};
+  checklist={}; cartelas={}; despesas={}; desistencias={}; conflitos={}; prestacoes={}; matriz={}; lotesTreino={}; sorteio={numeros:'',max:75};
   filtrarVendedores(); marcarAmbienteUI(); escutarAmbiente(); desenhar();
   window.scrollTo(0,0);
 }
@@ -545,7 +648,7 @@ function prepararFoto(inp){
   img.src=url;
 }
 function limparForm(){
-  ['nvNome','nvPin','nvCompleto','nvRg','nvTel','nvEnd','nvFoto'].forEach(i=>{document.getElementById(i).value='';});
+  ['nvNome','nvPin','nvCompleto','nvRg','nvTel','nvEnd','nvFoto','nvFotoCam','nvGrupo'].forEach(i=>{document.getElementById(i).value='';});
   document.getElementById('prevFoto').style.display='none'; fotoNova=null; editId=null;
   document.getElementById('tituloForm').textContent='Cadastrar vendedor';
   document.getElementById('btnCad').textContent='Cadastrar';
@@ -561,6 +664,7 @@ function editarVendedor(id){
   document.getElementById('nvRg').value=c.rg||'';
   document.getElementById('nvTel').value=c.telefone||'';
   document.getElementById('nvEnd').value=c.endereco||'';
+  document.getElementById('nvGrupo').value=v.grupo||'';
   if(c.foto){ const p=document.getElementById('prevFoto'); p.src=c.foto; p.style.display='block'; }
   document.getElementById('tituloForm').textContent='Editar vendedor: '+v.nome;
   document.getElementById('btnCad').textContent='Salvar alterações';
@@ -583,6 +687,7 @@ async function cadastrarVendedor(){
   if(!dados.endereco){ msg('msgVend','Informe o endereço.'); return; }
   if(dados.telefone.replace(/\D/g,'').length<10){ msg('msgVend','Telefone inválido.'); return; }
   for(const id in vendedoresAll){ if(id!==editId && vendedoresAll[id] && norm(vendedoresAll[id].nome)===norm(nome)){ msg('msgVend','Já existe vendedor com esse nome de login.'); return; } }
+  const grupo=ajustarNomeGrupo(document.getElementById('nvGrupo').value);
   try{
     if(editId){
       const id=editId;
@@ -591,6 +696,7 @@ async function cadastrarVendedor(){
         await db.ref('equipeVendas/vendedores/'+id+'/pinHash').set(await hashPin(id,pin));
       }
       await db.ref('equipeVendas/vendedores/'+id+'/nome').set(nome);
+      await db.ref('equipeVendas/vendedores/'+id+'/grupo').set(grupo||null);
       dados.foto = fotoNova || ((cadastros[id]||{}).foto) || '';
       await db.ref('equipeVendas/cadastros/'+id).set(dados);
       limparForm(); msg('msgVend','Alterações salvas!');
@@ -601,12 +707,98 @@ async function cadastrarVendedor(){
       const h=await hashPin(ref.key,pin);
       dados.foto=fotoNova;
       await db.ref('equipeVendas/cadastros/'+ref.key).set(dados);
-      const novo={nome:nome,pinHash:h,ativo:true,criado:Date.now()}; if(AMB==='treino') novo.ambiente='treino';
+      const novo={nome:nome,pinHash:h,ativo:true,criado:Date.now()}; if(AMB==='treino') novo.ambiente='treino'; if(grupo) novo.grupo=grupo;
       await ref.set(novo);
       limparForm(); msg('msgVend','Vendedor cadastrado!');
     }
   }catch(e){ erroDb(e); }
 }
+/* ---------- EQUIPES (GRUPOS DE VENDEDORES) ---------- */
+function listaGrupos(){
+  const m={};
+  Object.keys(vendedoresAll).forEach(id=>{ const g=String((vendedoresAll[id]||{}).grupo||'').trim(); if(g && !m[norm(g)]) m[norm(g)]=g; });
+  return Object.keys(m).map(k=>m[k]).sort((a,b)=>norm(a).localeCompare(norm(b)));
+}
+// usa a mesma grafia de uma equipe que já existe (evita "equipe sede" e "Equipe Sede" separadas)
+function ajustarNomeGrupo(txt){
+  const g=String(txt||'').trim().replace(/\s+/g,' ').slice(0,40);
+  if(!g) return '';
+  const igual=listaGrupos().find(x=>norm(x)===norm(g));
+  return igual||g;
+}
+function grupoDe(id){ const v=vendedores[id]||vendedoresAll[id]; return String((v&&v.grupo)||'').trim(); }
+function trocarGrupo(id){
+  const v=vendedores[id]; if(!v) return;
+  const gs=listaGrupos();
+  const r=prompt('Equipe de '+v.nome+':'+(gs.length?'\nEquipes existentes: '+gs.join(', '):'')+'\n\n(deixe em branco para tirar da equipe)', v.grupo||'');
+  if(r===null) return;
+  db.ref('equipeVendas/vendedores/'+id+'/grupo').set(ajustarNomeGrupo(r)||null).catch(erroDb);
+}
+function renderEquipes(){
+  const tab=document.getElementById('eqTabela'); if(!tab) return;
+  // sugestões no cadastro
+  const dl=document.getElementById('listaGrupos'), gs=listaGrupos(), chave=gs.join('|');
+  if(dl && dl.getAttribute('data-k')!==chave){ dl.setAttribute('data-k',chave); dl.innerHTML=gs.map(g=>'<option value="'+esc(g)+'">').join(''); }
+
+  const iDia=inicioDia(), iSem=inicioSemana();
+  const pc=calcPrestacao();
+  const pv={};
+  Object.keys(vendedores).forEach(id=>{ let ent=0; lotesDe(id).forEach(l=>{ent+=l.ate-l.de+1;});
+    pv[id]={id:id,nome:vendedores[id].nome,ent:ent,vend:0,dev:0,hoje:0,sem:0,fq:0,fv:0}; });
+  let totalVend=0;
+  Object.keys(cartelas).forEach(n=>{ const c=cartelas[n]; if(!c) return;
+    if(c.status!=='devolvida') totalVend++;
+    const o=pv[c.vendedorId]; if(!o) return;
+    if(c.status==='devolvida'){ o.dev++; return; }
+    o.vend++; const t=c.ts||0; if(t>=iDia) o.hoje++; if(t>=iSem) o.sem++;
+    if(c.pagamento==='Fiado'){ o.fq++; o.fv+=Number(c.valor)||0; } });
+  const CAMPOS=['ent','vend','dev','comigo','hoje','sem','pagas','bruto','com','liq','prest','falta','fq','fv'];
+  Object.keys(pv).forEach(id=>{ const o=pv[id], p=pc[id]||{q:0,b:0,com:0,liq:0,pv:0,fv:0};
+    o.pagas=p.q; o.bruto=p.b; o.com=p.com; o.liq=p.liq; o.prest=p.pv; o.falta=p.fv; o.comigo=Math.max(0,o.ent-o.vend-o.dev); });
+
+  const G={};
+  Object.keys(pv).forEach(id=>{ const nome=grupoDe(id), k=nome?norm(nome):'';
+    const g=G[k]||(G[k]={k:k,nome:nome||'Sem equipe',ids:[]});
+    g.ids.push(id); CAMPOS.forEach(f=>{ g[f]=(g[f]||0)+pv[id][f]; }); });
+  const ks=Object.keys(G).filter(k=>k!=='').sort((a,b)=>G[b].vend-G[a].vend||G[b].bruto-G[a].bruto);
+  if(G['']) ks.push('');
+
+  const pctV=(o)=>o.ent>0?Math.round(o.vend*100/o.ent)+'%':'-';
+  const corF=(v)=>v>0.009?'ruim':'bom';
+  const linha=(rotulo,o,nv)=>'<td>'+rotulo+'</td>'+(nv!=null?'<td>'+nv+'</td>':'')+'<td>'+o.ent+'</td><td><b>'+o.vend+'</b></td><td>'+pctV(o)+'</td><td>'+o.hoje+'</td><td>'+o.sem+'</td><td>'+o.pagas+'</td><td>'+o.fq+(o.fq?'<br><small style="color:#ffb74d">'+moeda(o.fv)+'</small>':'')+'</td><td>'+moeda(o.bruto)+'</td><td>'+moeda(o.com)+'</td><td>'+moeda(o.liq)+'</td><td>'+moeda(o.prest)+'</td><td class="'+corF(o.falta)+'"><b>'+moeda(Math.max(0,o.falta))+'</b></td>';
+
+  // resumo
+  let nEq=0, nVendEq=0, vendEq=0;
+  ks.forEach(k=>{ if(k!==''){ nEq++; nVendEq+=G[k].ids.length; vendEq+=G[k].vend; } });
+  document.getElementById('eqQtd').textContent=nEq;
+  document.getElementById('eqVendQtd').textContent=nVendEq;
+  document.getElementById('eqVendidas').textContent=vendEq;
+  document.getElementById('eqPct').textContent=totalVend?Math.round(vendEq*100/totalVend)+'%':'0%';
+
+  // barras
+  const maxV=Math.max(1,...ks.map(k=>G[k].vend));
+  document.getElementById('eqBarras').innerHTML = nEq ? ks.map((k,i)=>{ const g=G[k];
+    return '<div class="hbar"><div style="display:flex;justify-content:space-between"><span>'+(k===''?'':'<b>'+(i+1)+'º</b> ')+esc(g.nome)+'</span><span><b>'+g.vend+'</b> vendidas • '+moeda(g.bruto)+' pago</span></div><div class="tr"><div style="width:'+(g.vend*100/maxV)+'%;background:'+(k===''?'#94a3b8':PAL[i%PAL.length])+'"></div></div></div>'; }).join('')
+    : '<div style="color:#9db4d8;font-size:13px">Nenhuma equipe ainda. Para criar, abra a aba 👥 Equipe e preencha o campo "Equipe de vendas" no cadastro do vendedor (ou use o botão "Trocar equipe" no cartão dele).</div>';
+
+  // ranking
+  const T={}; CAMPOS.forEach(f=>{ T[f]=0; }); let nT=0;
+  tab.innerHTML = ks.length ? ks.map((k,i)=>{ const g=G[k]; CAMPOS.forEach(f=>{ T[f]+=g[f]; }); nT+=g.ids.length;
+      const rot = k==='' ? '<span style="color:#9db4d8">'+esc(g.nome)+'</span>' : '<b>'+(i+1)+'º '+esc(g.nome)+'</b>';
+      return '<tr'+(i===0&&k!==''?' style="background:#3d3200"':'')+'>'+linha(rot,g,g.ids.length)+'</tr>'; }).join('')
+      +'<tr style="font-weight:bold;background:#0b1d3a">'+linha('TOTAL',T,nT)+'</tr>'
+    : '<tr><td colspan="14" style="color:#9db4d8">Nenhum vendedor.</td></tr>';
+
+  // detalhe por equipe (mantém abertas as que já estavam)
+  const abertas={}; document.querySelectorAll('#eqDetalhe details[open]').forEach(d=>{ abertas[d.getAttribute('data-k')]=1; });
+  document.getElementById('eqDetalhe').innerHTML = ks.map((k,i)=>{ const g=G[k];
+    const ids=g.ids.slice().sort((a,b)=>pv[b].vend-pv[a].vend||pv[b].bruto-pv[a].bruto);
+    return '<details class="vend" data-k="'+esc(k)+'"'+(abertas[k]?' open':'')+'><summary style="cursor:pointer;font-size:15px"><b style="color:#ffd24a">'+(k===''?'':(i+1)+'º ')+esc(g.nome)+'</b> • '+g.ids.length+' vendedor(es) • '+g.vend+' vendidas • '+moeda(g.bruto)+' pago</summary>'
+      +'<div class="rolar" style="margin-top:8px"><table><thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas</th><th>% vendido</th><th>Hoje</th><th>Semana</th><th>Pagas</th><th>Fiado</th><th>Valor pago</th><th>Comissão</th><th>Líquido</th><th>Prestado</th><th>Falta prestar</th></tr></thead><tbody>'
+      +ids.map((id,j)=>'<tr>'+linha((j+1)+'º '+esc(pv[id].nome)+(g.vend?' <small style="color:#9db4d8">('+Math.round(pv[id].vend*100/g.vend)+'% da equipe)</small>':''),pv[id],null)+'</tr>').join('')
+      +'</tbody></table></div></details>'; }).join('') || '<div style="color:#9db4d8">Nenhum vendedor.</div>';
+}
+
 async function trocarPin(id){
   const pin=prompt('Novo PIN (4 a 8 números):');
   if(pin===null) return;
@@ -758,6 +950,7 @@ function desenhar(){
   document.getElementById('rValorHoje').textContent=moeda(vHoje);
   renderExtras(vTotal,fiadoTotal,tTotal,entTotal);
   try{ renderPrestacao(); }catch(e){ console.error(e); }
+  try{ renderEquipes(); }catch(e){ console.error(e); }
   try{ atualizarInfoTreino(); }catch(e){}
   try{ if(!document.querySelector('[data-aba="sorteio"]').classList.contains('abaoff')){ renderSorteio(); conferirCartela(); } }catch(e){}
   document.getElementById('rFiado').textContent=moeda(fiadoTotal);
@@ -787,8 +980,8 @@ function desenhar(){
   document.getElementById('listaVendedores').innerHTML = ids.length ? ids.map(id=>{
     const v=vendedores[id], s=st[id], cd=cadastros[id]||{};
     return '<div class="vend"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;align-items:center">'
-      +'<b>'+esc(v.nome)+(v.ativo===false?' <span class="tag" style="background:#a62b2b">desativado</span>':'')+(v.ambiente==='treino'?' <span class="tag" style="background:#6b4fbb">🧪 treinamento</span>':'')+'</b>'
-      +'<div><button class="b-azul b-peq" onclick="editarVendedor(\''+id+'\')">Editar dados</button><button class="b-cinza b-peq" onclick="trocarPin(\''+id+'\')">Trocar PIN</button>'
+      +'<b>'+esc(v.nome)+(v.ativo===false?' <span class="tag" style="background:#a62b2b">desativado</span>':'')+(v.ambiente==='treino'?' <span class="tag" style="background:#6b4fbb">🧪 treinamento</span>':'')+(v.grupo?' <span class="tag" style="background:#8a5a00">👥 '+esc(v.grupo)+'</span>':'')+'</b>'
+      +'<div><button class="b-azul b-peq" onclick="editarVendedor(\''+id+'\')">Editar dados</button><button class="b-azul b-peq" onclick="trocarGrupo(\''+id+'\')">'+(v.grupo?'Trocar equipe':'Colocar em equipe')+'</button><button class="b-cinza b-peq" onclick="trocarPin(\''+id+'\')">Trocar PIN</button>'
       +'<button class="b-azul b-peq" onclick="moverAmbiente(\''+id+'\')">'+(AMB==='treino'?'Passar para REAL':'Passar para TREINAMENTO')+'</button>'
       +'<button class="b-cinza b-peq" onclick="alternarAtivo(\''+id+'\')">'+(v.ativo===false?'Reativar':'Desativar')+'</button>'
       +'<button class="b-verm b-peq" onclick="excluirVendedor(\''+id+'\')">Excluir</button></div></div>'
@@ -1190,25 +1383,118 @@ function registrarPrestacao(){
 function excluirPrestacao(k){ if(!confirm('Excluir esta prestação de contas?')) return; db.ref(B()+'/acertos/'+k).remove().catch(erroDb); }
 
 /* ---------- DESPESAS E RESULTADO OPERACIONAL ---------- */
+function numBR(s){ s=String(s==null?'':s).trim(); if(!s) return NaN; if(s.indexOf(',')>=0) s=s.replace(/\./g,'').replace(',','.'); return parseFloat(s); }
 function addDespesa(){
   const desc=document.getElementById('dsDesc').value.trim();
-  const valor=parseFloat(String(document.getElementById('dsValor').value).replace(',','.'));
+  const valor=numBR(document.getElementById('dsValor').value);
+  const realTxt=document.getElementById('dsReal').value.trim();
+  const real=realTxt?numBR(realTxt):0;
   if(desc.length<2){ msg('msgDesp','Informe a descrição.'); return; }
-  if(!(valor>0)){ msg('msgDesp','Informe um valor maior que zero.'); return; }
-  db.ref(B()+'/despesas').push({desc:desc,valor:valor,categoria:document.getElementById('dsCat').value,tipo:document.getElementById('dsTipo').value,ts:Date.now()})
-    .then(()=>{ document.getElementById('dsDesc').value=''; document.getElementById('dsValor').value=''; msg('msgDesp','Despesa adicionada.'); }).catch(erroDb);
+  if(!(valor>0)){ msg('msgDesp','Informe o valor planejado (maior que zero).'); return; }
+  if(realTxt && !(real>=0)){ msg('msgDesp','Valor realizado inválido.'); return; }
+  const tipo=document.getElementById('dsTipo').value;
+  const d={desc:desc,valor:valor,realizado:real||0,categoria:document.getElementById('dsCat').value,tipo:tipo,ts:Date.now()};
+  if(real>0){ d.quitada = real>=valor; d.pagamentos={p0:{valor:real,ts:Date.now()}}; }
+  db.ref(B()+'/despesas').push(d)
+    .then(()=>{ ['dsDesc','dsValor','dsReal'].forEach(i=>document.getElementById(i).value=''); msg('msgDesp','Despesa adicionada.'); }).catch(erroDb);
 }
 function delDespesa(k){
   if(!confirm('Excluir esta despesa?')) return;
   db.ref(B()+'/despesas/'+k).remove().catch(erroDb);
 }
+function situacaoDesp(d){
+  const p=Number(d.valor)||0, r=Number(d.realizado)||0;
+  if(d.quitada || (r>0 && r>=p)) return 'ok';
+  if(r>0) return 'parc';
+  return 'pend';
+}
+// valor que entra no cálculo do resultado: o realizado quando a despesa já está quitada; senão, o maior entre planejado e realizado
+function custoDesp(d){
+  const p=Number(d.valor)||0, r=Number(d.realizado)||0;
+  return situacaoDesp(d)==='ok' ? r : Math.max(p,r);
+}
+function lancarPagamento(k){
+  const d=despesas[k]; if(!d) return;
+  if(d.tipo==='variavel'){ editarDespesa(k); return; }
+  const falta=Math.max(0,(Number(d.valor)||0)-(Number(d.realizado)||0));
+  const r=prompt('Pagamento de "'+d.desc+'"\n\nPlanejado: '+moeda(d.valor)+'\nJá pago: '+moeda(d.realizado||0)+'\n\nQuanto você pagou AGORA? (R$)', falta?String(falta.toFixed(2)).replace('.',','):'');
+  if(r===null) return;
+  const v=numBR(r); if(!(v>0)){ alert('Valor inválido.'); return; }
+  const novo=Math.round(((Number(d.realizado)||0)+v)*100)/100;
+  let quit=novo>=(Number(d.valor)||0);
+  if(!quit) quit=confirm('Total pago: '+moeda(novo)+' (planejado '+moeda(d.valor)+').\n\nEssa despesa já está ENCERRADA (não vai pagar mais nada)?\n\nOK = sim, encerrada com economia\nCancelar = não, ainda falta pagar');
+  const upd={}; const pk=db.ref(B()+'/despesas/'+k+'/pagamentos').push().key;
+  upd['realizado']=novo; upd['quitada']=quit; upd['pagamentos/'+pk]={valor:v,ts:Date.now()};
+  db.ref(B()+'/despesas/'+k).update(upd).catch(erroDb);
+}
+function editarDespesa(k){
+  const d=despesas[k]; if(!d) return;
+  const vv=d.tipo==='variavel';
+  const p=prompt('Valor PLANEJADO de "'+d.desc+'"'+(vv?' (por cartela)':'')+' (R$):', String(Number(d.valor)||0).replace('.',','));
+  if(p===null) return;
+  const pv=numBR(p); if(!(pv>0)){ alert('Valor planejado inválido.'); return; }
+  const r=prompt('Valor REALIZADO'+(vv?' (custo real por cartela)':' (total já pago)')+' (R$):\n(deixe 0 se ainda não pagou)', String(Number(d.realizado)||0).replace('.',','));
+  if(r===null) return;
+  const rv=r.trim()?numBR(r):0; if(!(rv>=0)){ alert('Valor realizado inválido.'); return; }
+  let quit=rv>0 && rv>=pv;
+  if(rv>0 && !quit) quit=confirm('Essa despesa já está ENCERRADA (não vai pagar mais nada)?\n\nOK = sim, encerrada\nCancelar = não, ainda falta pagar');
+  db.ref(B()+'/despesas/'+k).update({valor:pv,realizado:rv,quitada:quit}).catch(erroDb);
+}
+function verPagamentos(k){
+  const d=despesas[k]; if(!d) return;
+  const ps=Object.keys(d.pagamentos||{}).map(x=>d.pagamentos[x]).filter(Boolean).sort((a,b)=>(a.ts||0)-(b.ts||0));
+  alert('Pagamentos de "'+d.desc+'":\n\n'+(ps.length?ps.map(p=>new Date(p.ts||0).toLocaleDateString('pt-BR')+'  •  '+moeda(p.valor)).join('\n'):'Nenhum pagamento lançado.')+'\n\nTotal pago: '+moeda(d.realizado||0)+'\nPlanejado: '+moeda(d.valor));
+}
 function renderDespesasEResultado(vTotal,fiadoTotal,tTotal,entTotal){
   let fixos=0, varU=0;
+  let fPlan=0, fReal=0, vPlan=0, vReal=0, nOk=0, nParc=0, nPend=0, nFix=0;
   const ks=Object.keys(despesas).filter(k=>despesas[k]).sort((x,y)=>(despesas[x].ts||0)-(despesas[y].ts||0));
-  ks.forEach(k=>{ const d=despesas[k], v=Number(d.valor)||0; if(d.tipo==='variavel') varU+=v; else fixos+=v; });
-  document.getElementById('listaDespesas').innerHTML = ks.map(k=>{ const d=despesas[k];
-    return '<div class="item"><div><b>'+esc(d.desc)+'</b><small>'+esc(d.categoria)+' • '+(d.tipo==='variavel'?'Variável (por cartela)':'Fixa')+'</small></div><div style="text-align:right">'+moeda(d.valor)+(d.tipo==='variavel'?' /cartela':'')+'<br><a href="#" style="color:#ff8a80;font-size:12px" onclick="delDespesa(\''+esc(k)+'\');return false">excluir</a></div></div>';
-  }).join('') + (ks.length?'<div class="item"><div><b>Total fixas</b></div><div><b>'+moeda(fixos)+'</b></div></div><div class="item"><div><b>Total variáveis por cartela</b></div><div><b>'+moeda(varU)+'</b></div></div>':'<div style="color:#9db4d8;font-size:14px">Nenhuma despesa cadastrada.</div>');
+  const cats={};
+  ks.forEach(k=>{ const d=despesas[k], p=Number(d.valor)||0, r=Number(d.realizado)||0, s=situacaoDesp(d);
+    if(d.tipo==='variavel'){ varU+=custoDesp(d); vPlan+=p; vReal+=r; return; }
+    fixos+=custoDesp(d); fPlan+=p; fReal+=r; nFix++;
+    if(s==='ok') nOk++; else if(s==='parc') nParc++; else nPend++;
+    const c=d.categoria||'Outros'; const o=cats[c]||(cats[c]={p:0,r:0,f:0}); o.p+=p; o.r+=r; o.f+=custoDesp(d); });
+
+  // lista
+  const filtro=(document.getElementById('dsFiltro')||{}).value||'';
+  const SIT={ok:'<span class="tag" style="background:#1f7a3d">✅ Pago</span>',parc:'<span class="tag" style="background:#a66b00">🟡 Pago em parte</span>',pend:'<span class="tag" style="background:#3a4a66">⏳ A pagar</span>'};
+  const difV=(x)=>{ x=Math.round(x*100)/100; if(Math.abs(x)<0.01) return '<span class="bom">R$ 0,00</span>'; return '<span class="'+(x>0?'ruim':'bom')+'">'+(x>0?'+':'')+moeda(x)+'</span>'; };
+  const dif=(d)=>{ const p=Number(d.valor)||0, r=Number(d.realizado)||0, s=situacaoDesp(d); if(d.tipo==='variavel') return r?difV(r-p):'<span style="color:#9db4d8">-</span>'; if(s==='ok') return difV(r-p); if(s==='parc') return '<span style="color:#ffb74d">falta '+moeda(p-r)+'</span>'; return '<span style="color:#9db4d8">-</span>'; };
+  const lin=ks.filter(k=>!filtro || (despesas[k].tipo!=='variavel' && situacaoDesp(despesas[k])===filtro)).map(k=>{ const d=despesas[k], vv=d.tipo==='variavel', p=Number(d.valor)||0, r=Number(d.realizado)||0;
+    const np=Object.keys(d.pagamentos||{}).length;
+    return '<tr><td><b>'+esc(d.desc)+'</b><br><small style="color:#9db4d8">'+esc(d.categoria)+' • '+(vv?'Variável (por cartela)':'Fixa')+'</small></td>'
+      +'<td>'+moeda(p)+(vv?'<small>/cart.</small>':'')+'</td><td>'+(r?moeda(r)+(vv?'<small>/cart.</small>':''):'<span style="color:#9db4d8">-</span>')+(np?'<br><a href="#" style="color:#9db4d8;font-size:11px" onclick="verPagamentos(\''+esc(k)+'\');return false">'+np+' pagamento(s)</a>':'')+'</td>'
+      +'<td>'+dif(d)+'</td><td>'+(vv?'<span class="tag">por cartela</span>':SIT[situacaoDesp(d)])+'</td>'
+      +'<td style="white-space:nowrap">'+(vv?'':'<button class="b-ouro b-peq" onclick="lancarPagamento(\''+esc(k)+'\')">💵 Lançar pagamento</button> ')
+      +'<button class="b-azul b-peq" onclick="editarDespesa(\''+esc(k)+'\')">✏️ '+(vv?'Editar':'Planejado')+'</button> '
+      +'<a href="#" style="color:#ff8a80;font-size:12px" onclick="delDespesa(\''+esc(k)+'\');return false">excluir</a></td></tr>'; });
+  document.getElementById('listaDespesas').innerHTML = lin.length ? lin.join('')
+    +(filtro?'':'<tr style="font-weight:bold;background:#0b1d3a"><td>TOTAL despesas fixas</td><td>'+moeda(fPlan)+'</td><td>'+moeda(fReal)+'</td><td>'+difV(fixos-fPlan)+'<br><small style="color:#9db4d8">previsão</small></td><td></td><td></td></tr>')
+    : '<tr><td colspan="6" style="color:#9db4d8">'+(ks.length?'Nenhuma despesa nesse filtro.':'Nenhuma despesa cadastrada.')+'</td></tr>';
+
+  // resumo planejado x realizado
+  const pctPago=fPlan>0?Math.min(100,Math.round(fReal/fPlan*100)):0;
+  const aPagar=Math.max(0,fixos-fReal);
+  document.getElementById('dsResumo').innerHTML = ks.length ? '<div class="grade">'
+      +'<div class="kpi"><b>'+moeda(fPlan)+'</b><span>Total PLANEJADO</span></div>'
+      +'<div class="kpi"><b style="color:#4cd37b">'+moeda(fReal)+'</b><span>Total REALIZADO (já pago)</span></div>'
+      +'<div class="kpi"><b style="color:#ffb74d">'+moeda(aPagar)+'</b><span>Ainda falta pagar</span></div>'
+      +'<div class="kpi"><b class="'+(fixos>fPlan+0.009?'ruim':'bom')+'">'+(fixos-fPlan>0?'+':'')+moeda(fixos-fPlan)+'</b><span>Previsão final x planejado</span></div>'
+      +'</div>'
+      +'<div style="margin-top:10px;font-size:14px">'+pctPago+'% do planejado já foi pago • <b>'+nOk+'</b> paga(s), <b>'+nParc+'</b> em parte, <b>'+nPend+'</b> a pagar (de '+nFix+')</div>'
+      +'<div class="barra"><div style="width:'+pctPago+'%"></div></div>'
+      +(vPlan?'<div style="font-size:13px;margin-top:6px">Custos por cartela: planejado <b>'+moeda(vPlan)+'</b> • real <b>'+(vReal?moeda(vReal):'-')+'</b></div>':'')
+      +'<div style="font-size:12px;color:#9db4d8;margin-top:6px">"Previsão final" usa o valor pago nas despesas encerradas e o maior entre planejado e pago nas demais. É esse valor que entra no ponto de equilíbrio e no lucro.</div>'
+    : '<div style="color:#9db4d8;font-size:14px">Cadastre as despesas com o valor planejado. Quando pagar, lance o valor realizado para acompanhar a evolução.</div>';
+
+  // por categoria
+  const cs=Object.keys(cats).sort((a,b)=>cats[b].p-cats[a].p);
+  document.getElementById('dsCategorias').innerHTML = cs.length ? cs.map(c=>{ const o=cats[c];
+      return '<tr><td>'+esc(c)+'</td><td>'+moeda(o.p)+'</td><td>'+moeda(o.r)+'</td><td>'+difV(o.f-o.p)+'</td><td>'+(o.p?Math.round(o.r*100/o.p)+'%':'-')+'</td></tr>'; }).join('')
+      +'<tr style="font-weight:bold;background:#0b1d3a"><td>TOTAL</td><td>'+moeda(fPlan)+'</td><td>'+moeda(fReal)+'</td><td>'+difV(fixos-fPlan)+'</td><td>'+(fPlan?Math.round(fReal*100/fPlan)+'%':'-')+'</td></tr>'
+    : '<tr><td colspan="5" style="color:#9db4d8">Nenhuma despesa fixa cadastrada.</td></tr>';
+  window._caixaDesp=fReal;
 
   const preco=Number(config.preco)||0;
   const comPct=pctCom()/100;
@@ -1236,7 +1522,8 @@ function renderDespesasEResultado(vTotal,fiadoTotal,tTotal,entTotal){
       +'<div class="barra"><div style="width:'+pct+'%"></div></div><div style="font-size:12px;color:#9db4d8">'+pct+'% do ponto de equilíbrio</div>';
   }
   h+='<div style="margin-top:14px">'
-    +'<div class="item"><div><b>Lucro REALIZADO</b><small>só o que já entrou no caixa (fiado não conta)</small></div><div class="'+cor(realizado)+'"><b>'+moeda(realizado)+'</b></div></div>'
+    +(function(){ const cx=vTotal-comPct*vTotal-(window._caixaDesp||0); return '<div class="item"><div><b>💵 Saldo de caixa hoje</b><small>vendas pagas − comissões − despesas já pagas</small></div><div class="'+cor(cx)+'"><b>'+moeda(cx)+'</b></div></div>'; })()
+    +'<div class="item"><div><b>Lucro REALIZADO</b><small>vendas pagas − todas as despesas previstas (fiado não conta)</small></div><div class="'+cor(realizado)+'"><b>'+moeda(realizado)+'</b></div></div>'
     +'<div class="item"><div><b>Lucro se os fiados forem pagos</b><small>vendas até agora, incluindo '+moeda(fiadoTotal)+' a receber</small></div><div class="'+cor(comFiado)+'"><b>'+moeda(comFiado)+'</b></div></div>'
     +'<div class="item"><div><b>Lucro PROJETADO</b><small>se vender a meta de '+meta+' cartelas</small></div><div class="'+cor(projetado)+'"><b>'+moeda(projetado)+'</b></div></div>'
     +'</div>'
@@ -1245,6 +1532,104 @@ function renderDespesasEResultado(vTotal,fiadoTotal,tTotal,entTotal){
   window._pe=pe;
   try{ renderGraficos(); }catch(e){ console.error(e); }
 }
+
+/* ---------- CHECK-LIST DO EVENTO ---------- */
+const CK_SUGESTOES=[
+  ['Planejamento','Definir data, horário e local do Bingão'],
+  ['Planejamento','Definir valor da cartela e quantidade de cartelas'],
+  ['Planejamento','Definir os prêmios e o valor de cada batida'],
+  ['Documentação','Providenciar autorizações / alvará do evento'],
+  ['Gráfica / cartelas','Enviar arte das cartelas para a gráfica'],
+  ['Gráfica / cartelas','Retirar as cartelas impressas na gráfica'],
+  ['Gráfica / cartelas','Receber a matriz das cartelas e carregar no sistema'],
+  ['Vendedores','Cadastrar os vendedores e as equipes no sistema'],
+  ['Vendedores','Treinar os vendedores no app (ambiente de treinamento)'],
+  ['Vendedores','Entregar os lotes de cartelas aos vendedores'],
+  ['Divulgação','Artes para redes sociais (feed e stories)'],
+  ['Divulgação','Wind banner / faixas / carro de som'],
+  ['Prêmios','Comprar / reservar os prêmios'],
+  ['Local / estrutura','Reservar mesas, cadeiras e tendas'],
+  ['Som / iluminação','Contratar som, telão e iluminação'],
+  ['Pós-evento','Separar cartelas pagas para os Dias da Sorte'],
+  ['Dia do evento','Conferir globo, bolas e painel de números'],
+  ['Dia do evento','Montar equipe de conferência das cartelas premiadas'],
+  ['Pós-evento','Fazer a prestação de contas final de todos os vendedores'],
+  ['Pós-evento','Entregar os prêmios e registrar os ganhadores']
+];
+function addTarefa(){
+  const t=document.getElementById('ckTexto').value.trim();
+  if(t.length<3){ msg('msgCk','Escreva a tarefa.'); return; }
+  const item={texto:t.slice(0,120),etapa:document.getElementById('ckEtapa').value,prazo:document.getElementById('ckPrazo').value||'',resp:document.getElementById('ckResp').value.trim().slice(0,40),feito:false,ts:Date.now()};
+  db.ref(B()+'/checklist').push(item).then(()=>{ ['ckTexto','ckPrazo','ckResp'].forEach(i=>document.getElementById(i).value=''); msg('msgCk','Tarefa adicionada.'); }).catch(erroDb);
+}
+function carregarSugestoes(){
+  const jaTem={}; Object.keys(checklist).forEach(k=>{ if(checklist[k]) jaTem[norm(checklist[k].texto)]=1; });
+  const novas=CK_SUGESTOES.filter(x=>!jaTem[norm(x[1])]);
+  if(!novas.length){ alert('Todas as tarefas sugeridas já estão na sua lista.'); return; }
+  if(!confirm('Adicionar '+novas.length+' tarefa(s) sugerida(s) para o Bingão? Depois você pode editar, colocar prazo ou excluir as que não precisar.')) return;
+  const upd={}; let i=0;
+  novas.forEach(x=>{ const k=db.ref(B()+'/checklist').push().key; upd[k]={texto:x[1],etapa:x[0],prazo:'',resp:'',feito:false,ts:Date.now()+(i++)}; });
+  db.ref(B()+'/checklist').update(upd).then(()=>msg('msgCk',novas.length+' tarefa(s) adicionada(s).')).catch(erroDb);
+}
+function marcarTarefa(k){
+  const c=checklist[k]; if(!c) return;
+  const f=!c.feito;
+  db.ref(B()+'/checklist/'+k).update({feito:f, feitoEm:f?Date.now():null}).catch(erroDb);
+}
+function editarTarefa(k){
+  const c=checklist[k]; if(!c) return;
+  const t=prompt('Tarefa:',c.texto||''); if(t===null) return;
+  if(t.trim().length<3){ alert('Escreva a tarefa.'); return; }
+  const r=prompt('Responsável (deixe vazio se não tiver):',c.resp||''); if(r===null) return;
+  const p=prompt('Prazo no formato DD/MM/AAAA (deixe vazio se não tiver):',c.prazo?fmtDataBR(c.prazo):''); if(p===null) return;
+  let prazo='';
+  if(p.trim()){ const m=p.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(!m){ alert('Data inválida. Use DD/MM/AAAA, ex.: 20/12/2026'); return; } prazo=m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'); }
+  const o=prompt('Observação (opcional):',c.obs||''); if(o===null) return;
+  db.ref(B()+'/checklist/'+k).update({texto:t.trim().slice(0,120),resp:r.trim().slice(0,40),prazo:prazo,obs:o.trim().slice(0,200)}).catch(erroDb);
+}
+function delTarefa(k){ if(!confirm('Excluir esta tarefa?')) return; db.ref(B()+'/checklist/'+k).remove().catch(erroDb); }
+function fmtDataBR(s){ const p=String(s||'').split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:s; }
+function hojeISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function renderChecklist(){
+  const box=document.getElementById('ckLista'); if(!box) return;
+  const hj=hojeISO();
+  const ks=Object.keys(checklist).filter(k=>checklist[k]);
+  let feitos=0, atr=0, semana=0;
+  const em7=new Date(); em7.setDate(em7.getDate()+7); const lim7=em7.getFullYear()+'-'+String(em7.getMonth()+1).padStart(2,'0')+'-'+String(em7.getDate()).padStart(2,'0');
+  ks.forEach(k=>{ const c=checklist[k]; if(c.feito) feitos++; else if(c.prazo && c.prazo<hj) atr++; else if(c.prazo && c.prazo<=lim7) semana++; });
+  const tot=ks.length, pct=tot?Math.round(feitos*100/tot):0;
+  document.getElementById('ckResumo').innerHTML = tot ? '<div class="grade">'
+      +'<div class="kpi"><b>'+tot+'</b><span>Tarefas</span></div>'
+      +'<div class="kpi"><b style="color:#4cd37b">'+feitos+'</b><span>Providenciadas</span></div>'
+      +'<div class="kpi"><b style="color:#ffb74d">'+(tot-feitos)+'</b><span>Pendentes</span></div>'
+      +'<div class="kpi"><b style="color:'+(atr?'#ff8a80':'#4cd37b')+'">'+atr+'</b><span>Atrasadas</span></div>'
+      +'</div><div style="margin-top:10px;font-size:14px"><b>'+pct+'%</b> concluído'+(semana?' • <b>'+semana+'</b> vence(m) nos próximos 7 dias':'')+'</div><div class="barra"><div style="width:'+pct+'%"></div></div>'
+    : '<div style="color:#9db4d8;font-size:14px">Nenhuma tarefa ainda. Adicione abaixo ou toque em <b>📋 Carregar lista sugerida</b>.</div>';
+  const filtro=(document.getElementById('ckFiltro')||{}).value||'';
+  const vis=ks.filter(k=>{ const c=checklist[k]; if(filtro==='pend') return !c.feito; if(filtro==='ok') return !!c.feito; if(filtro==='atr') return !c.feito && c.prazo && c.prazo<hj; return true; });
+  // agrupa por etapa; dentro da etapa: pendentes primeiro, depois por prazo
+  const grupos={}; vis.forEach(k=>{ const e=checklist[k].etapa||'Outros'; (grupos[e]=grupos[e]||[]).push(k); });
+  const ordemEtapas=['Planejamento','Documentação','Gráfica / cartelas','Prêmios','Local / estrutura','Som / iluminação','Divulgação','Vendedores','Dia do evento','Pós-evento','Outros'];
+  const es=Object.keys(grupos).sort((a,b)=>{ const ia=ordemEtapas.indexOf(a), ib=ordemEtapas.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
+  box.innerHTML = es.length ? es.map(e=>{
+    const lst=grupos[e].sort((a,b)=>{ const A=checklist[a], Bc=checklist[b]; return (A.feito?1:0)-(Bc.feito?1:0) || (A.prazo||'9').localeCompare(Bc.prazo||'9') || (A.ts||0)-(Bc.ts||0); });
+    const fe=grupos[e].filter(k=>checklist[k].feito).length;
+    return '<div style="margin-top:10px;font-weight:bold;color:#ffd24a">'+esc(e)+' <span style="color:#9db4d8;font-weight:normal;font-size:12px">('+fe+'/'+grupos[e].length+')</span></div>'
+      + lst.map(k=>{ const c=checklist[k]; const at=!c.feito && c.prazo && c.prazo<hj; const hoje=!c.feito && c.prazo===hj;
+        return '<div class="item" style="align-items:flex-start;gap:10px'+(c.feito?';opacity:.6':'')+'">'
+          +'<label style="display:flex;gap:10px;align-items:flex-start;margin:0;color:#fff;cursor:pointer;flex:1"><input type="checkbox" style="width:24px;height:24px;flex:0 0 24px;margin-top:2px" '+(c.feito?'checked':'')+' onchange="marcarTarefa(\''+esc(k)+'\')">'
+          +'<span><span style="'+(c.feito?'text-decoration:line-through':'')+'">'+esc(c.texto)+'</span>'
+          +'<small style="display:block;color:#9db4d8">'
+            +(c.resp?'👤 '+esc(c.resp)+' • ':'')
+            +(c.prazo?'<span class="'+(at?'ruim':'')+'" style="'+(hoje?'color:#ffb74d;font-weight:bold':'')+'">📅 '+esc(fmtDataBR(c.prazo))+(at?' (ATRASADA)':'')+(hoje?' (HOJE)':'')+'</span>':'sem prazo')
+            +(c.feito&&c.feitoEm?' • ✅ feito em '+new Date(c.feitoEm).toLocaleDateString('pt-BR'):'')
+            +(c.obs?'<br>📝 '+esc(c.obs):'')
+          +'</small></span></label>'
+          +'<div style="white-space:nowrap;text-align:right"><a href="#" style="color:#5aa9ff;font-size:12px" onclick="editarTarefa(\''+esc(k)+'\');return false">editar</a><br><a href="#" style="color:#ff8a80;font-size:12px" onclick="delTarefa(\''+esc(k)+'\');return false">excluir</a></div>'
+          +'</div>'; }).join('');
+  }).join('') : '<div style="color:#9db4d8;font-size:14px">'+(tot?'Nenhuma tarefa nesse filtro.':'Nenhuma tarefa cadastrada.')+'</div>';
+}
+setInterval(()=>{ try{ renderChecklist(); }catch(e){} }, 10*60000);
 
 /* ---------- MODELO PARA TESTES ---------- */
 async function gerarTeste(){
@@ -1378,15 +1763,109 @@ function zerarVendas(){
     .then(()=>msg('msgTeste','Todas as vendas foram zeradas.')).catch(erroDb);
 }
 
+/* ---------- TOUR / TUTORIAL ---------- */
+const TOUR_PASSOS=[
+  {titulo:'Bem-vindo ao Painel do Gerente!', texto:'Este tour mostra, passo a passo, como funciona o sistema de vendas do <b>Bingão da Virada</b>. Toque em <b>Próximo</b> para avançar. Você pode rever o tour quando quiser no botão <b>❓ Tour</b> lá no topo.'},
+  {sel:'#barraAmb', titulo:'Equipe REAL x TREINAMENTO', texto:'Aqui você escolhe qual ambiente está vendo. <b>🟢 REAL</b> são as vendas de verdade. <b>🧪 TREINAMENTO</b> é um ambiente separado para treinar os vendedores sem mexer nos dados reais. A tela fica roxa quando você está no treinamento.'},
+  {sel:'#barraAbas', titulo:'As abas do painel', texto:'Cada botão abre uma parte do sistema. Vamos passar por todas, na ordem em que você normalmente usa.'},
+  {aba:'config', sel:'#cfEvento', card:true, titulo:'1. Configure o evento', texto:'Comece por aqui: nome do evento, <b>preço da cartela</b> e as <b>datas de corte</b> (Dias da Sorte e pré-venda). A lista de comunidades aparece como sugestão para os vendedores. Depois toque em <b>Salvar</b>.'},
+  {aba:'resultado', sel:'#cfComissao', card:true, titulo:'2. Comissão e meta', texto:'Defina a <b>% de comissão</b> dos vendedores e a <b>meta</b> de cartelas a vender. Esses números são usados na prestação de contas e no resultado.'},
+  {aba:'equipe', sel:'#nvNome', card:true, titulo:'3. Cadastre os vendedores', texto:'Preencha o <b>nome de login</b> (curto, ex.: Maria), o <b>PIN</b> (4 a 8 números), os dados pessoais e a foto. O vendedor entra no app dele com esse nome e esse PIN.'},
+  {aba:'equipe', sel:'#nvGrupo', titulo:'👥 Equipe de vendas', texto:'Se o vendedor vai trabalhar em grupo, digite o nome da equipe (ex.: <b>Equipe Sede</b>). Para colocar outro vendedor na mesma equipe, escolha o mesmo nome na lista. Quem vende sozinho deixa em branco.'},
+  {aba:'equipe', sel:'#listaVendedores', card:true, titulo:'4. Entregue os lotes de cartelas', texto:'Cada vendedor tem um cartão. Em <b>Lote: do nº ... até o nº</b> você registra a faixa de cartelas que entregou a ele. Ele só consegue vender as cartelas dos lotes dele. Aqui também ficam: <b>Marcar devolvida</b>, <b>Trocar PIN</b>, <b>Trocar equipe</b>, Desativar e Excluir.'},
+  {aba:'resumo', sel:'#rHoje', card:true, titulo:'5. Acompanhe ao vivo', texto:'As vendas aparecem aqui <b>na hora</b> em que o vendedor registra (ou quando o celular dele volta a ter internet). Veja as vendidas hoje, na semana e no mês, o valor recebido, o fiado a receber e quantas cartelas ainda estão com os vendedores.'},
+  {aba:'resumo', sel:'#tabela', card:true, titulo:'Desempenho por vendedor', texto:'Ranking de cada vendedor: cartelas entregues, vendidas, devolvidas, quantas ainda estão com ele, valor recebido, fiado e comissão do mês.'},
+  {aba:'resumo', sel:'#feed', card:true, titulo:'Últimas vendas', texto:'As vendas mais recentes. Em cada uma você pode <b>alterar pgto</b>, <b>alterar local</b> (comunidade) ou <b>estornar</b> uma venda feita por engano. O botão de baixo baixa todas as vendas em planilha.'},
+  {aba:'fiados', sel:'#listaFiados', card:true, titulo:'6. Fiados', texto:'Cartelas reservadas para pagar depois. As atrasadas aparecem em vermelho. Toque em <b>💰 Recebido</b> quando o cliente pagar, em <b>↩️ Desistência</b> se ele desistir (a cartela volta para o vendedor) ou em <b>WhatsApp</b> para cobrar.'},
+  {aba:'prestacao', sel:'#pcVend', card:true, titulo:'7. Prestação de contas', texto:'Quando o vendedor entregar o dinheiro, escolha o nome dele. O sistema já sugere quantas cartelas e qual <b>valor líquido</b> (valor pago menos a comissão) ele deve entregar. Confira e toque em <b>Registrar prestação</b>.'},
+  {aba:'prestacao', sel:'#tabPc', card:true, titulo:'Situação de cada vendedor', texto:'Mostra quanto cada vendedor já prestou e quanto <b>falta prestar</b>. Vermelho = ainda deve ao caixa. Cartela fiada só entra aqui depois de paga.'},
+  {aba:'grupos', sel:'#eqBarras', card:true, titulo:'8. Resultado por equipe', texto:'Ranking das equipes de vendedores: quem vendeu mais, valor pago, comissão, líquido e quanto falta prestar. Mais abaixo, toque no nome de uma equipe para ver o resultado de cada vendedor dela.'},
+  {aba:'fases', sel:'#fDS', card:true, titulo:'9. Fases e Dias da Sorte', texto:'Separa as vendas em <b>🍀 Dias da Sorte</b>, <b>pré-venda</b> e <b>venda no dia do Bingão</b>, de acordo com as datas de corte. Fiado não pago <b>não entra</b> nos Dias da Sorte.'},
+  {aba:'fases', sel:'#selFase', card:true, titulo:'Lista para o sorteio', texto:'Escolha a lista que quer ver e baixe a planilha com as cartelas dos <b>Dias da Sorte</b> para separar para o sorteio.'},
+  {aba:'graficos', sel:'#gcGeral', card:true, titulo:'10. Gráficos', texto:'Evolução das vendas dia a dia, por forma de pagamento, por comunidade e por vendedor. Toque nos pontos para ver os valores.'},
+  {aba:'sorteio', sel:'#mxTxt', card:true, titulo:'11. Matriz das cartelas', texto:'Antes do Bingão, carregue aqui o arquivo da gráfica com os números de cada cartela. Sem a matriz o sistema não consegue conferir as cartelas.'},
+  {aba:'sorteio', sel:'#sxNum', card:true, titulo:'Durante o Bingão', texto:'Digite cada número sorteado e aperte Enter. O sistema mostra as <b>cartelas perto de bater</b>. Em <b>Conferir cartela</b> você digita o número da cartela vencedora para confirmar o prêmio e ver quem comprou.'},
+  {aba:'resultado', sel:'#dsDesc', card:true, titulo:'12. Despesas: planejado x realizado', texto:'Cadastre cada despesa do evento (gráfica, prêmios, som...) com o <b>valor planejado</b>. Quando pagar, toque em <b>💵 Lançar pagamento</b> (pode pagar em partes). O quadro <b>Planejado x Realizado</b> mostra quanto já foi pago, quanto falta e se está gastando mais ou menos do que o previsto.'},
+  {aba:'resultado', sel:'#resultadoOp', card:true, titulo:'Resultado operacional', texto:'Mostra o <b>saldo de caixa</b> de hoje, o <b>ponto de equilíbrio</b> (quantas cartelas precisa vender para pagar tudo) e o lucro realizado e projetado.'},
+  {aba:'checklist', sel:'#ckResumo', card:true, titulo:'13. Check-list do evento', texto:'Lista de tudo que precisa ser providenciado, separada por etapa, com <b>prazo</b> e <b>responsável</b>. Marque a caixinha quando concluir. Toque em <b>📋 Carregar lista sugerida</b> para começar com uma lista pronta para o Bingão. Tarefas atrasadas aparecem em vermelho.'},
+  {aba:'config', sel:'#trNomes', card:true, titulo:'14. Treinamento', texto:'Crie vendedores de treino para ensinar a equipe a usar o app. Quando todos estiverem prontos, toque em <b>🏁 ENCERRAR TREINAMENTO</b>: os dados de treino são apagados e os vendedores passam para a equipe real.'},
+  {titulo:'Pronto! 🎉', texto:'O caminho resumido é: <b>Config → cadastrar vendedores e equipes → entregar lotes → acompanhar as vendas → receber fiados → prestação de contas → sorteio</b>.<br>Para ver este tour de novo, toque em <b>❓ Tour</b> no topo.'}
+];
+const TOUR_CHAVE='jd_tour_adm_visto', TOUR_ABA_FIM='resumo';
+let tourI=0, tourAtual=null, tourOn=false;
+function tourMontar(){
+  if(document.getElementById('tourCx')) return;
+  const st=document.createElement('style');
+  st.textContent='#tourBlk{position:fixed;inset:0;z-index:200}#tourLuz{position:fixed;z-index:201;border:3px solid #ffd24a;border-radius:12px;box-shadow:0 0 0 9999px rgba(3,8,22,.78);pointer-events:none;transition:all .25s}'
+    +'#tourCx{position:fixed;z-index:202;left:50%;bottom:12px;transform:translateX(-50%);width:calc(100% - 24px);max-width:520px;background:#14305f;border:2px solid #ffd24a;border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.6);color:#fff;font-family:Arial,Helvetica,sans-serif}'
+    +'#tourCx .tt{display:flex;gap:10px;align-items:center}#tourCx .tt img{height:56px;width:auto}#tourCx h3{margin:0;font-size:18px;color:#ffd24a;line-height:1.2}#tourCx .pc{font-size:12px;color:#9db4d8}'
+    +'#tourCx .tx{font-size:15px;line-height:1.45;margin:10px 0 4px;max-height:34vh;overflow:auto}#tourCx .bts{display:flex;gap:8px;margin-top:10px}#tourCx .bts button{flex:1;margin:0;padding:12px;font-size:15px;font-weight:bold;border:none;border-radius:10px;cursor:pointer}'
+    +'#tourCx .pts{display:flex;gap:4px;justify-content:center;margin-top:10px;flex-wrap:wrap}#tourCx .pts i{width:7px;height:7px;border-radius:50%;background:#2a4d8f}#tourCx .pts i.on{background:#ffd24a}';
+  document.head.appendChild(st);
+  const blk=document.createElement('div'); blk.id='tourBlk';
+  const luz=document.createElement('div'); luz.id='tourLuz';
+  const cx=document.createElement('div'); cx.id='tourCx'; cx.setAttribute('role','dialog');
+  document.body.appendChild(blk); document.body.appendChild(luz); document.body.appendChild(cx);
+  window.addEventListener('scroll',tourPosicionar,{passive:true});
+  window.addEventListener('resize',tourPosicionar);
+}
+function tourAlvo(p){
+  if(!p.sel) return null;
+  let el=document.querySelector(p.sel); if(!el) return null;
+  if(p.card) el=el.closest('.card')||el;
+  const r=el.getBoundingClientRect();
+  if(r.width===0 && r.height===0) return null; // escondido
+  return el;
+}
+function tourPosicionar(){
+  if(!tourOn) return;
+  const l=document.getElementById('tourLuz'), b=document.getElementById('tourBlk');
+  if(!tourAtual){ l.style.display='none'; b.style.background='rgba(3,8,22,.78)'; return; }
+  const r=tourAtual.getBoundingClientRect(), pad=6;
+  l.style.display='block'; b.style.background='transparent';
+  l.style.left=(r.left-pad)+'px'; l.style.top=(r.top-pad)+'px';
+  l.style.width=(r.width+pad*2)+'px'; l.style.height=(r.height+pad*2)+'px';
+}
+function tourMostrar(){
+  const p=TOUR_PASSOS[tourI], tot=TOUR_PASSOS.length, ult=(tourI===tot-1);
+  if(p.aba && typeof abrirAba==='function') abrirAba(p.aba);
+  const cx=document.getElementById('tourCx');
+  cx.innerHTML='<div class="tt"><img src="boneco.png" alt=""><div><div class="pc">Passo '+(tourI+1)+' de '+tot+'</div><h3>'+p.titulo+'</h3></div></div>'
+    +'<div class="tx">'+p.texto+'</div>'
+    +'<div class="bts">'+(tourI>0?'<button class="b-cinza" onclick="tourIr(-1)">◀ Anterior</button>':'<button class="b-cinza" onclick="fecharTour()">Pular</button>')
+    +'<button class="b-ouro" onclick="'+(ult?'fecharTour()':'tourIr(1)')+'">'+(ult?'Concluir ✔':'Próximo ▶')+'</button></div>'
+    +'<div class="pts">'+TOUR_PASSOS.map((x,i)=>'<i class="'+(i===tourI?'on':'')+'"></i>').join('')+'</div>'
+    +(ult?'':'<div style="text-align:center;margin-top:6px"><a href="#" style="color:#9db4d8;font-size:12px" onclick="fecharTour();return false">Fechar tour</a></div>');
+  setTimeout(()=>{
+    tourAtual=tourAlvo(p);
+    if(tourAtual){ const r=tourAtual.getBoundingClientRect(); window.scrollTo({top:Math.max(0,r.top+window.scrollY-90),behavior:'smooth'}); }
+    else window.scrollTo({top:0,behavior:'smooth'});
+    tourPosicionar(); setTimeout(tourPosicionar,450); setTimeout(tourPosicionar,900);
+  },80);
+}
+function tourIr(d){ tourI=Math.max(0,Math.min(TOUR_PASSOS.length-1,tourI+d)); tourMostrar(); }
+function iniciarTour(){
+  tourMontar(); tourOn=true; tourI=0;
+  ['tourBlk','tourLuz','tourCx'].forEach(i=>document.getElementById(i).style.display='block');
+  tourMostrar();
+}
+function fecharTour(){
+  tourOn=false; tourAtual=null;
+  ['tourBlk','tourLuz','tourCx'].forEach(i=>{ const e=document.getElementById(i); if(e) e.style.display='none'; });
+  try{ localStorage.setItem(TOUR_CHAVE,'1'); }catch(e){}
+  if(TOUR_ABA_FIM && typeof abrirAba==='function') abrirAba(TOUR_ABA_FIM);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
 function baixarCSV(modo){
   modo = modo || 'todas';
   const L=limites();
-  const linhas=[['Cartela','Comprador','Telefone','Vendedor','Valor','Pagamento','Situação','Data prevista (fiado)','Data/Hora','Fase','Comunidade']];
+  const linhas=[['Cartela','Comprador','Telefone','Vendedor','Valor','Pagamento','Situação','Data prevista (fiado)','Data/Hora','Fase','Comunidade','Equipe']];
   Object.keys(cartelas).sort((x,y)=>x-y).forEach(n=>{
     const c=cartelas[n]; if(!c||c.status==='devolvida') return;
     const f=faseDe(c,L);
     if(modo==='ds' && f!=='ds') return;
-    linhas.push([n,c.comprador,c.telefone,c.vendedorNome,String(c.valor).replace('.',','),c.pagamento||'',c.pagamento==='Fiado'?'FIADO - a receber':'Pago',c.dataPrevista||'',new Date(c.ts).toLocaleString('pt-BR'),NOMEFASE[f],c.comunidade||'']);
+    linhas.push([n,c.comprador,c.telefone,c.vendedorNome,String(c.valor).replace('.',','),c.pagamento||'',c.pagamento==='Fiado'?'FIADO - a receber':'Pago',c.dataPrevista||'',new Date(c.ts).toLocaleString('pt-BR'),NOMEFASE[f],c.comunidade||'',grupoDe(c.vendedorId)]);
   });
   const csv='﻿'+linhas.map(l=>l.map(x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"').join(';')).join('\r\n');
   const el=document.createElement('a');

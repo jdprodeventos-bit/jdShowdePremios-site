@@ -1,0 +1,18 @@
+{
+  "id": "/vendas-adm",
+  "name": "JD Vendas – Gerente",
+  "short_name": "JD Gerente",
+  "description": "Painel do gerente de vendas do Bingão.",
+  "start_url": "/vendas-adm",
+  "scope": "/vendas",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1d3a",
+  "theme_color": "#0b1d3a",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icone-vendas-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icone-vendas-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icone-vendas-mask-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

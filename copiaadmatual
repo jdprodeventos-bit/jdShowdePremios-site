@@ -37,6 +37,8 @@
         .info-header-box { display: flex; justify-content: space-between; width: 100%; max-width: 600px; margin-bottom: 12px; background: #fff; padding: 10px 15px; border-radius: 10px; border: 1px solid #e2e8f0; font-weight: bold; font-size: 14px; }
         .alerta-vencedor { background: #fef2f2; border: 2px dashed #ef4444; color: #991b1b; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; display: none; }
 
+        .aviso-divisao-premio { background: #fef9c3; border: 1px solid #eab308; color: #854d0e; padding: 8px 12px; border-radius: 6px; font-size: 13px; margin-bottom: 8px; display: none; text-align: center; }
+
         /* ===== BILHETE DO VENCEDOR (grade 3x5, 15 números) ===== */
         .wrapper-bilhetes-vencedores { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
         .bilhete-vencedor { background: #fff; border: 3px solid #f59e0b; border-radius: 10px; padding: 16px; text-align: left; }
@@ -122,9 +124,14 @@ var db = firebase.database();
     <div style="color: #2563eb;">🎫 Preço: <span id="topGlobalPreco">R$ 0,00</span></div>
 </div>
 
+<div style="width:100%; max-width:600px; background:#fef9c3; border:1px solid #eab308; color:#854d0e; padding:8px 12px; border-radius:8px; font-size:13px; font-weight:600; text-align:center; margin-bottom:15px;">
+    ⚠️ Regra: caso haja mais de 1 vencedor, o prêmio será dividido igualmente entre eles.
+</div>
+
 <!-- ALERTA DE GANHADOR(ES) EM TEMPO REAL -->
 <div class="card alerta-vencedor" id="boxVencedorAdmin">
     <div id="txtTituloVencedorAdmin">🚨 🔥 BINGO! TEMOS UM GANHADOR COROADO! 🔥 🚨</div>
+    <div id="avisoDivisaoPremioAdmin" class="aviso-divisao-premio"></div>
     <div id="wrapperBilhetesParaImprimir" class="wrapper-bilhetes-vencedores"></div>
     <button class="btn-print-bilhetes" onclick="window.print()">🖨️ Imprimir Bilhete(s)</button>
 </div>
@@ -190,9 +197,41 @@ var db = firebase.database();
         <div class="lista-linhas-compacta" id="listaSolicitacoesCredito"></div>
     </section>
 
+    <section class="card" style="background: #fef2f2; border: 1px solid #fecaca;">
+        <h2>💰 Saldos de Créditos dos Clientes</h2>
+        <div class="lista-linhas-compacta" id="listaSaldosClientes">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center;">Nenhum cliente com saldo registrado.</p>
+        </div>
+    </section>
+
     <section class="card">
         <h2>👥 Participantes Registrados (<span id="totalCartelas">0</span>)</h2>
         <div class="lista-linhas-compacta" id="listaCartelasAtivas"></div>
+    </section>
+
+    <!-- RESUMO FINANCEIRO DA RODADA ATUAL -->
+    <section class="card" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+        <h2>📊 Resumo Financeiro (Rodada Atual #<span id="resFinRodadaAtualId">1</span>)</h2>
+        <div class="info-header-box" style="margin: 0;">
+            <div>🎫 Cartelas vendidas: <span id="resFinQtdRodada">0</span></div>
+            <div>💰 Arrecadado: <span id="resFinArrecadadoRodada">R$ 0,00</span></div>
+        </div>
+    </section>
+
+    <!-- HISTÓRICO POR RODADA -->
+    <section class="card">
+        <h2>📅 Histórico por Rodada</h2>
+        <div class="lista-linhas-compacta" id="listaHistoricoRodadas">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center;">Nenhuma rodada encerrada ainda.</p>
+        </div>
+    </section>
+
+    <!-- RESUMO MENSAL -->
+    <section class="card">
+        <h2>🗓️ Resumo Mensal</h2>
+        <div class="lista-linhas-compacta" id="listaResumoMensal">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center;">Nenhuma venda registrada ainda.</p>
+        </div>
     </section>
 </div>
 
@@ -201,8 +240,15 @@ let bolasSorteadas = [];
 let participantesAtivos = [];
 let eOrganizadorAutenticado = false;
 let solicitacoesCredito = [];
+let todosCreditos = {};
 let possuiVencedorAtivo = false; 
 let ultimoResumoPelaBoa = { faltando1: 0, faltando2: 0 }; 
+
+// ===== Apuração financeira =====
+let todasVendas = [];
+let todasRodadas = {};
+let rodadaAtualId = 1;
+let precoCartelaAtualAdmin = 0;
 
 function falarTexto(texto) {
     if ('speechSynthesis' in window) {
@@ -212,6 +258,16 @@ function falarTexto(texto) {
         falar.rate = 1.1;
         window.speechSynthesis.speak(falar);
     }
+}
+
+// Extrai um número de um texto de prêmio, ex: "R$ 1.200,00" -> 1200, "iPhone 15" -> null
+function extrairValorNumerico(texto) {
+    if (!texto) return null;
+    let limpo = texto.toString().replace(/[^\d,.-]/g, '');
+    limpo = limpo.replace(/\.(?=\d{3}(,|$))/g, ''); // remove pontos de milhar
+    limpo = limpo.replace(',', '.');
+    let n = parseFloat(limpo);
+    return isNaN(n) ? null : n;
 }
 
 // ===== ANIMAÇÃO DO BONECO: clique manual (efeito "pulo") =====
@@ -229,11 +285,22 @@ function animarBonecoAdminClique() {
     });
 }
 
-db.ref('jogo/preco').on('value', snap => { document.getElementById('topGlobalPreco').innerText = "R$ " + (snap.val() || "0,00"); });
+db.ref('jogo/preco').on('value', snap => {
+    document.getElementById('topGlobalPreco').innerText = "R$ " + (snap.val() || "0,00");
+    let bruto = (snap.val() || "0").toString().replace(',', '.');
+    precoCartelaAtualAdmin = parseFloat(bruto) || 0;
+});
 db.ref('jogo/premio').on('value', snap => { document.getElementById('topGlobalPremio').innerText = snap.val() || "A Definir"; });
 db.ref('jogo/status').on('value', snap => {
     let s = (snap.val() || 'fechado').toLowerCase();
     document.getElementById('txtStatusAtual').innerHTML = s === 'aberto' ? "<span style='color:green;'>🔓 ABERTO</span>" : "<span style='color:red;'>🔒 FECHADO</span>";
+});
+
+db.ref('jogo/rodadaAtual').on('value', snap => {
+    rodadaAtualId = snap.val() || 1;
+    let el = document.getElementById('resFinRodadaAtualId');
+    if (el) el.innerText = rodadaAtualId;
+    if (eOrganizadorAutenticado) renderizarResumoFinanceiro();
 });
 
 function montarGradeBilhete(numeros) {
@@ -266,6 +333,7 @@ db.ref('jogo/vencedores').on('value', snap => {
     let box = document.getElementById('boxVencedorAdmin');
     let boneco = document.getElementById('bonecoMascoteAdmin');
     let titulo = document.getElementById('txtTituloVencedorAdmin');
+    let avisoDivisao = document.getElementById('avisoDivisaoPremioAdmin');
 
     if(vencedores.length > 0) {
         possuiVencedorAtivo = true;
@@ -274,11 +342,25 @@ db.ref('jogo/vencedores').on('value', snap => {
             ? `🚨 🔥 BINGO! TEMOS ${vencedores.length} GANHADORES EMPATADOS! 🔥 🚨`
             : `🚨 🔥 BINGO! TEMOS UM GANHADOR COROADO! 🔥 🚨`;
 
+        if (vencedores.length > 1) {
+            let premioTexto = document.getElementById('topGlobalPremio').innerText || '';
+            let valorNumerico = extrairValorNumerico(premioTexto);
+            if (valorNumerico !== null) {
+                let parte = valorNumerico / vencedores.length;
+                avisoDivisao.innerText = `💰 Regra: o prêmio será dividido igualmente entre os ${vencedores.length} ganhadores: R$ ${parte.toFixed(2).replace('.', ',')} para cada um.`;
+            } else {
+                avisoDivisao.innerText = `💰 Regra: o prêmio será dividido entre os ${vencedores.length} ganhadores.`;
+            }
+            avisoDivisao.style.display = 'block';
+        } else {
+            avisoDivisao.style.display = 'none';
+        }
+
         renderizarBilhetesVencedores(vencedores);
 
         if(vencedores.length > 1) {
             let nomes = vencedores.map(v => v.nome).join(', ');
-            falarTexto(`Atenção! Deu empate! Temos ${vencedores.length} ganhadores nesta rodada: ${nomes}!`);
+            falarTexto(`Atenção! Deu empate! Temos ${vencedores.length} ganhadores nesta rodada: ${nomes}! O prêmio será dividido entre eles!`);
         } else {
             let v = vencedores[0];
             falarTexto(`Atenção! Temos um ganhador! Parabéns para ${v.nome}, que fechou a cartela número ${v.id}!`);
@@ -288,6 +370,7 @@ db.ref('jogo/vencedores').on('value', snap => {
         possuiVencedorAtivo = false; 
         box.style.display = 'none';
         document.getElementById('wrapperBilhetesParaImprimir').innerHTML = "";
+        avisoDivisao.style.display = 'none';
         if (boneco) boneco.classList.remove('boneco-vencedor');
     }
 });
@@ -322,16 +405,91 @@ db.ref('participantes').on('value', snap => {
 
 db.ref('solicitacoesCredito').on('value', snap => {
     solicitacoesCredito = [];
-    snap.forEach(c => { if(c.val()) solicitacoesCredito.push(c.val()); });
+    snap.forEach(c => {
+        let v = c.val();
+        if (v) {
+            v._chaveFirebase = c.key; // chave real do banco, sempre confiável (mesmo se o campo "id" interno estiver ausente/corrompido)
+            solicitacoesCredito.push(v);
+        }
+    });
     if (eOrganizadorAutenticado) renderizarSolicitacoesCredito();
+});
+
+db.ref('creditos').on('value', snap => {
+    todosCreditos = snap.val() || {};
+    if (eOrganizadorAutenticado) renderizarSaldosClientes();
+});
+
+db.ref('vendas').on('value', snap => {
+    todasVendas = [];
+    snap.forEach(c => { if (c.val()) todasVendas.push(c.val()); });
+    if (eOrganizadorAutenticado) renderizarResumoFinanceiro();
+});
+
+db.ref('rodadas').on('value', snap => {
+    todasRodadas = snap.val() || {};
+    if (eOrganizadorAutenticado) renderizarResumoFinanceiro();
 });
 
 function atualizarTelas() {
     if (eOrganizadorAutenticado) {
         renderizarListaParticipantes();
         renderizarSolicitacoesCredito();
+        renderizarResumoFinanceiro();
+        renderizarSaldosClientes();
         calcularPelaBoa();
     }
+}
+
+// Tenta identificar o nome do cliente dono de um telefone, cruzando com participantes e solicitações de crédito
+function nomeParaTelefoneCliente(telNormalizado) {
+    let doParticipante = participantesAtivos.find(p => (p.telefone || '').replace(/\D/g, '') === telNormalizado);
+    if (doParticipante) return doParticipante.nome;
+    let daSolicitacao = solicitacoesCredito.find(s => (s.telefone || '').replace(/\D/g, '') === telNormalizado);
+    if (daSolicitacao) return daSolicitacao.nome;
+    let daVenda = todasVendas.find(v => (v.telefone || '').replace(/\D/g, '') === telNormalizado);
+    if (daVenda) return daVenda.nome;
+    return null;
+}
+
+function renderizarSaldosClientes() {
+    let container = document.getElementById('listaSaldosClientes');
+    if (!container) return;
+    container.innerHTML = "";
+
+    let telefones = Object.keys(todosCreditos);
+
+    if (telefones.length === 0) {
+        container.innerHTML = `<p style="color:#94a3b8; font-size:13px; text-align:center;">Nenhum cliente com saldo registrado.</p>`;
+        return;
+    }
+
+    telefones.sort((a, b) => (parseFloat(todosCreditos[b]) || 0) - (parseFloat(todosCreditos[a]) || 0));
+
+    telefones.forEach(tel => {
+        let saldo = parseFloat(todosCreditos[tel]) || 0;
+        let nome = nomeParaTelefoneCliente(tel) || '(nome não identificado)';
+
+        let div = document.createElement('div');
+        div.className = "item-lista-admin";
+        div.innerHTML = `<div><strong>${nome}</strong><br><small>📞 ${tel} — Saldo: R$ ${saldo.toFixed(2).replace('.', ',')}</small></div>`;
+
+        let b = document.createElement('button');
+        b.innerText = "Zerar Saldo (após devolução)";
+        b.style.cssText = "background:#ef4444; color:white; padding:6px 10px; font-size:12px; width:auto;";
+        b.onclick = () => zerarSaldoCliente(tel, nome, saldo);
+        div.appendChild(b);
+
+        container.appendChild(div);
+    });
+}
+
+function zerarSaldoCliente(tel, nome, saldoAtual) {
+    let confirmar = confirm(`Confirma que você já devolveu R$ ${saldoAtual.toFixed(2).replace('.', ',')} para ${nome} (📞 ${tel}) por fora do sistema (dinheiro ou Pix manual)?\n\nEsta ação vai ZERAR o saldo dele no sistema e NÃO pode ser desfeita.`);
+    if (!confirmar) return;
+    db.ref('creditos/' + tel).set(0).then(() => {
+        alert(`✅ Saldo de ${nome} foi zerado com sucesso.`);
+    });
 }
 
 function calcularPelaBoa() {
@@ -428,6 +586,7 @@ function sortearBolaManual() {
         db.ref('jogo/bolas').set(bolasSorteadas);
         
         // Usa filter (não find) para capturar TODOS que baterem bingo na mesma bola, não só o primeiro
+        // REGRA 2: se houver mais de 1 vencedor, o prêmio será dividido (ver aviso e cálculo em renderizarBilhetesVencedores/vencedores listener)
         let vencedoresEncontrados = participantesAtivos.filter(j =>
             j.status === 'paga' && j.numeros.map(num => parseInt(num)).every(num => bolasSorteadas.includes(num))
         );
@@ -449,7 +608,27 @@ function limparApenasBolas() {
 function gerarNovoEstoqueNuvem() {
     let qtd = parseInt(document.getElementById('qtdCartelas').value) || 5000;
     if(!confirm("Isso apagará todas as vendas! Continuar?")) return;
-    
+
+    // Antes de zerar, guarda um "retrato" da rodada que está terminando:
+    // o prêmio que estava configurado no momento do encerramento, para a apuração histórica.
+    db.ref('jogo/rodadaAtual').once('value').then(snapRodada => {
+        let rodadaEncerrada = snapRodada.val() || 1;
+
+        db.ref('jogo/premio').once('value').then(snapPremio => {
+            db.ref('rodadas/' + rodadaEncerrada).set({
+                id: rodadaEncerrada,
+                premio: snapPremio.val() || '',
+                encerradaEm: Date.now()
+            }).then(() => {
+                let novaRodada = rodadaEncerrada + 1;
+                db.ref('jogo/rodadaAtual').set(novaRodada);
+                prosseguirGeracaoEstoque(qtd);
+            });
+        });
+    });
+}
+
+function prosseguirGeracaoEstoque(qtd) {
     db.ref('participantes').set(null); db.ref('jogo/bolas').set(null); db.ref('jogo/vencedores').set(null); db.ref('estoque').set(null);
     
     let novoEstoque = {};
@@ -482,7 +661,7 @@ function gerarNovoEstoqueNuvem() {
 }
 
 function renderizarSolicitacoesCredito() {
-    let pendentes = solicitacoesCredito.filter(s => s.status === 'pendente');
+    let pendentes = solicitacoesCredito.filter(s => s.status === 'pendente' || s.status === 'aguardando_pagamento');
     let elTotal = document.getElementById('totalSolicitacoesCredito');
     if (elTotal) elTotal.innerText = pendentes.length;
 
@@ -498,28 +677,55 @@ function renderizarSolicitacoesCredito() {
     pendentes.forEach(s => {
         let div = document.createElement('div');
         div.className = "item-lista-admin";
-        div.innerHTML = `<div><strong>${s.nome}</strong><br><small>📞 ${s.telefone} — R$ ${parseFloat(s.valor).toFixed(2).replace('.', ',')}</small></div>`;
+        let statusTexto = s.status === 'aguardando_pagamento' ? '⏳ aguardando Pix' : '📋 manual';
+        let nomeSeguro = s.nome || '(sem nome)';
+        let telSeguro = s.telefone || '(sem telefone)';
+        let valorNumerico = parseFloat(s.valor);
+        let valorSeguro = isNaN(valorNumerico) ? '(valor inválido)' : ("R$ " + valorNumerico.toFixed(2).replace('.', ','));
+        div.innerHTML = `<div><strong>${nomeSeguro}</strong><br><small>📞 ${telSeguro} — ${valorSeguro} (${statusTexto})</small></div>`;
 
-        let b = document.createElement('button');
-        b.innerText = "Confirmar Crédito";
-        b.style.cssText = "background:#10b981; color:white; padding:6px 10px; font-size:12px; width:auto;";
-        b.onclick = () => confirmarSolicitacaoCredito(s);
+        let wrapperBotoes = document.createElement('div');
+        wrapperBotoes.style.cssText = "display:flex; gap:6px;";
 
-        div.appendChild(b);
+        if (s.status === 'pendente' && !isNaN(valorNumerico)) {
+            let bConfirmar = document.createElement('button');
+            bConfirmar.innerText = "Confirmar Crédito";
+            bConfirmar.style.cssText = "background:#10b981; color:white; padding:6px 10px; font-size:12px; width:auto;";
+            bConfirmar.onclick = () => confirmarSolicitacaoCredito(s);
+            wrapperBotoes.appendChild(bConfirmar);
+        }
+
+        let bRecusar = document.createElement('button');
+        bRecusar.innerText = "Recusar/Cancelar";
+        bRecusar.style.cssText = "background:#ef4444; color:white; padding:6px 10px; font-size:12px; width:auto;";
+        bRecusar.onclick = () => recusarSolicitacaoCredito(s);
+        wrapperBotoes.appendChild(bRecusar);
+
+        div.appendChild(wrapperBotoes);
         container.appendChild(div);
     });
 }
 
+function recusarSolicitacaoCredito(s) {
+    let chave = s._chaveFirebase || s.id;
+    if (!chave) return alert("Não foi possível identificar esta solicitação para exclusão.");
+    let valorTexto = isNaN(parseFloat(s.valor)) ? '(valor inválido)' : ("R$ " + parseFloat(s.valor).toFixed(2).replace('.', ','));
+    if (!confirm(`Cancelar a solicitação de ${valorTexto} de ${s.nome || '(sem nome)'}? O cliente não receberá o crédito.`)) return;
+    db.ref('solicitacoesCredito/' + chave).remove();
+}
+
 function confirmarSolicitacaoCredito(s) {
+    let chave = s._chaveFirebase || s.id;
     let tel = (s.telefone || '').replace(/\D/g, '');
     if (!tel) return alert("Telefone inválido nesta solicitação.");
+    if (!chave) return alert("Não foi possível identificar esta solicitação.");
 
     db.ref('creditos/' + tel).once('value').then(snap => {
         let saldoAtual = parseFloat(snap.val()) || 0;
         let novoSaldo = saldoAtual + parseFloat(s.valor);
 
         db.ref('creditos/' + tel).set(novoSaldo);
-        db.ref('solicitacoesCredito/' + s.id).update({ status: 'aprovado' });
+        db.ref('solicitacoesCredito/' + chave).update({ status: 'aprovado' });
 
         alert(`✅ Crédito de R$ ${parseFloat(s.valor).toFixed(2).replace('.', ',')} liberado para ${s.nome}. Novo saldo: R$ ${novoSaldo.toFixed(2).replace('.', ',')}`);
     });
@@ -532,11 +738,101 @@ function renderizarListaParticipantes() {
         div.innerHTML = `<div><strong>#${p.id} - ${p.nome}</strong><br><small>${p.status === 'paga'?'[PAGA]':'[PENDENTE]'}</small></div>`;
         if(p.status !== 'paga') {
             let b = document.createElement('button'); b.innerText = "Confirmar"; b.style.cssText="background:green;color:white;padding:4px;";
-            b.onclick = () => { db.ref('participantes/'+p.id).update({status:'paga'}); db.ref('estoque/'+p.id).update({status:'ocupado'}); };
+            b.onclick = () => {
+                db.ref('participantes/'+p.id).update({status:'paga'});
+                db.ref('estoque/'+p.id).update({status:'ocupado'});
+
+                // Registro da venda (caso ainda exista alguma cartela pendente de rodadas anteriores) para apuração
+                db.ref('vendas').push({
+                    cartelaId: p.id,
+                    nome: p.nome,
+                    telefone: p.telefone || '',
+                    valor: precoCartelaAtualAdmin,
+                    formaPagamento: 'dinheiro',
+                    timestamp: Date.now(),
+                    rodadaId: rodadaAtualId
+                });
+            };
             div.appendChild(b);
         }
         container.appendChild(div);
     });
+}
+
+function renderizarResumoFinanceiro() {
+    // ----- Rodada atual -----
+    let vendasRodadaAtual = todasVendas.filter(v => (v.rodadaId || 1) === rodadaAtualId);
+    let qtdRodadaAtual = vendasRodadaAtual.length;
+    let arrecadadoRodadaAtual = vendasRodadaAtual.reduce((soma, v) => soma + (parseFloat(v.valor) || 0), 0);
+
+    let elQtd = document.getElementById('resFinQtdRodada');
+    let elArrecadado = document.getElementById('resFinArrecadadoRodada');
+    if (elQtd) elQtd.innerText = qtdRodadaAtual;
+    if (elArrecadado) elArrecadado.innerText = "R$ " + arrecadadoRodadaAtual.toFixed(2).replace('.', ',');
+
+    // ----- Histórico por rodada (rodadas já encerradas) -----
+    let containerHist = document.getElementById('listaHistoricoRodadas');
+    if (containerHist) {
+        containerHist.innerHTML = "";
+        let idsRodadas = Object.keys(todasRodadas).map(id => parseInt(id)).sort((a, b) => b - a);
+
+        if (idsRodadas.length === 0) {
+            containerHist.innerHTML = `<p style="color:#94a3b8; font-size:13px; text-align:center;">Nenhuma rodada encerrada ainda.</p>`;
+        } else {
+            idsRodadas.forEach(id => {
+                let rodada = todasRodadas[id];
+                let vendasDaRodada = todasVendas.filter(v => (v.rodadaId || 1) === id);
+                let qtd = vendasDaRodada.length;
+                let arrecadado = vendasDaRodada.reduce((s, v) => s + (parseFloat(v.valor) || 0), 0);
+                let premioNumerico = extrairValorNumerico(rodada.premio);
+                let lucroTexto = premioNumerico !== null
+                    ? ("R$ " + (arrecadado - premioNumerico).toFixed(2).replace('.', ','))
+                    : "N/A (prêmio não numérico)";
+
+                let div = document.createElement('div');
+                div.className = "item-lista-admin";
+                div.style.flexDirection = "column";
+                div.style.alignItems = "flex-start";
+                div.style.gap = "4px";
+                div.innerHTML = `<div><strong>Rodada #${id}</strong></div>
+                    <div style="font-size:12px; color:#475569;">🎫 ${qtd} cartelas | 💰 R$ ${arrecadado.toFixed(2).replace('.', ',')} | 🏆 ${rodada.premio || '-'}</div>
+                    <div style="font-weight:bold; font-size:12px; color:#0f172a;">Lucro: ${lucroTexto}</div>`;
+                containerHist.appendChild(div);
+            });
+        }
+    }
+
+    // ----- Resumo mensal (agrupado pela data da venda) -----
+    let porMes = {};
+    todasVendas.forEach(v => {
+        let data = new Date(v.timestamp || Date.now());
+        let chave = data.getFullYear() + '-' + String(data.getMonth() + 1).padStart(2, '0');
+        if (!porMes[chave]) porMes[chave] = { qtd: 0, arrecadado: 0 };
+        porMes[chave].qtd++;
+        porMes[chave].arrecadado += parseFloat(v.valor) || 0;
+    });
+
+    let containerMes = document.getElementById('listaResumoMensal');
+    if (containerMes) {
+        containerMes.innerHTML = "";
+        let chavesMes = Object.keys(porMes).sort().reverse();
+        let nomesMeses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+        if (chavesMes.length === 0) {
+            containerMes.innerHTML = `<p style="color:#94a3b8; font-size:13px; text-align:center;">Nenhuma venda registrada ainda.</p>`;
+        } else {
+            chavesMes.forEach(chave => {
+                let partes = chave.split('-');
+                let ano = partes[0], mes = partes[1];
+                let m = porMes[chave];
+                let div = document.createElement('div');
+                div.className = "item-lista-admin";
+                div.innerHTML = `<div><strong>${nomesMeses[parseInt(mes) - 1]}/${ano}</strong></div>
+                    <div>🎫 ${m.qtd} | 💰 R$ ${m.arrecadado.toFixed(2).replace('.', ',')}</div>`;
+                containerMes.appendChild(div);
+            });
+        }
+    }
 }
 </script>
 </body>
