@@ -148,21 +148,35 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
     <h2>Minhas cartelas</h2>
     <div class="grade">
       <div class="kpi"><b id="kRec">0</b><span>Recebidas</span></div>
-      <div class="kpi"><b id="kVend">0</b><span>Vendidas</span></div>
-      <div class="kpi"><b id="kDev">0</b><span>Devolvidas</span></div>
-      <div class="kpi"><b id="kCom">0</b><span>Comigo</span></div>
+      <div class="kpi"><b id="kCom">0</b><span>Com você</span></div>
+      <div class="kpi"><b id="kVend">0</b><span>Vendidas (pagas)</span></div>
+      <div class="kpi"><b id="kRes" style="color:#ffb74d">0</b><span>🔮 Reservadas (fiado)</span></div>
+      <div class="kpi" style="grid-column:1/-1"><b id="kDev">0</b><span>Devolvidas</span></div>
     </div>
     <div id="listaLotes" style="margin-top:10px;font-size:13px;color:#9db4d8"></div>
   </div>
 
   <div class="card" data-av="inicio">
-    <h2>Minhas vendas</h2>
+    <h2>Minhas vendas (pagas)</h2>
     <div class="grade">
       <div class="kpi"><b id="tHoje">0</b><span>Hoje</span></div>
       <div class="kpi"><b id="tSem">0</b><span>Na semana</span></div>
       <div class="kpi"><b id="tMes">0</b><span>No mês</span></div>
       <div class="kpi"><b id="tValor">R$ 0</b><span>Recebido no mês</span></div>
     </div>
+    <div style="font-size:12px;color:#9db4d8;margin-top:8px">Conta só cartelas pagas. Um fiado entra aqui no dia em que o cliente pagar.</div>
+  </div>
+
+  <div class="card" data-av="inicio" id="cardFuturas" style="border:2px dashed #ff9f1c">
+    <h2 style="color:#ffb74d">🔮 Vendas futuras (fiado)</h2>
+    <div class="grade">
+      <div class="kpi"><b id="fQtd" style="color:#ffb74d">0</b><span>Cartelas reservadas</span></div>
+      <div class="kpi"><b id="fValor" style="color:#ffb74d">R$ 0</b><span>A receber</span></div>
+      <div class="kpi"><b id="fCom" style="color:#ffb74d">R$ 0</b><span>Comissão futura</span></div>
+      <div class="kpi"><b id="fAtr">0</b><span>Atrasadas</span></div>
+    </div>
+    <div style="font-size:12px;color:#9db4d8;margin-top:8px">Ainda não é venda: só vira venda (e libera a comissão) quando o cliente pagar.</div>
+    <button class="b-cinza" onclick="abrirAbaV('fiados')">Ver meus fiados</button>
   </div>
 
   <div class="card" data-av="inicio" style="border:2px solid #4cd37b">
@@ -171,7 +185,7 @@ button{width:100%;padding:14px;font-size:16px;font-weight:bold;border:none;borde
       <div class="kpi"><b id="cHoje">R$ 0</b><span>Hoje</span></div>
       <div class="kpi"><b id="cSem">R$ 0</b><span>Na semana</span></div>
       <div class="kpi"><b id="cMes">R$ 0</b><span>No mês</span></div>
-      <div class="kpi"><b id="cFiado" style="color:#ffb74d">R$ 0</b><span>A liberar (fiados)</span></div>
+      <div class="kpi"><b id="cTotal" style="color:#4cd37b">R$ 0</b><span>Total já ganho</span></div>
     </div>
     <div id="txtCom" style="font-size:12px;color:#9db4d8;margin-top:8px"></div>
   </div>
@@ -461,8 +475,8 @@ function desenhar(){
   pendentes.forEach(p=>{ todas[p.n] = Object.assign({}, p.dados, {pendente:true}); });
 
   let rec=0; eu.lotes.forEach(l=>{ rec += (l.ate-l.de+1); });
-  let vend=0, dev=0, hoje=0, sem=0, mes=0, valorMes=0;
-  let cHoje=0, cSem=0, cMes=0, cFiado=0;
+  let vend=0, res=0, dev=0, hoje=0, sem=0, mes=0, valorMes=0;
+  let cHoje=0, cSem=0, cMes=0, cFiado=0, cTotal=0, fValor=0, fAtr=0;
   const pct=pctCom();
   ultimasTodas=todas;
   const iDia=inicioDia(), iSem=inicioSemana(), iMes=inicioMes();
@@ -471,26 +485,29 @@ function desenhar(){
     const c=todas[n];
     if(!c) return;
     if(c.status==='devolvida'){ dev++; return; }
-    vend++;
-    const t=c.ts||0;
-    if(t>=iDia){ hoje++; listaHoje.push({n:n,c:c}); }
-    if(t>=iSem) sem++;
-    if(t>=iMes){ mes++; if(c.pagamento!=='Fiado') valorMes += Number(c.valor)||0; }
     const com=(Number(c.valor)||0)*pct/100;
-    if(c.pagamento==='Fiado'){ cFiado+=com; }
-    else{
-      const tp=(c.eraFiado && c.pagoEm) ? c.pagoEm : t;
-      if(tp>=iDia) cHoje+=com;
-      if(tp>=iSem) cSem+=com;
-      if(tp>=iMes) cMes+=com;
+    if(c.pagamento==='Fiado'){
+      // venda futura: não conta como venda até ser paga
+      res++; fValor+=Number(c.valor)||0; cFiado+=com;
+      if(c.dataPrevista && c.dataPrevista<hojeStr()) fAtr++;
+      return;
     }
+    vend++; cTotal+=com;
+    const tp=(c.eraFiado && c.pagoEm) ? c.pagoEm : (c.ts||0); // fiado pago conta no dia do pagamento
+    if(tp>=iDia){ hoje++; cHoje+=com; }
+    if(tp>=iSem){ sem++; cSem+=com; }
+    if(tp>=iMes){ mes++; valorMes+=Number(c.valor)||0; cMes+=com; }
   });
   document.getElementById('cHoje').textContent=moeda(cHoje);
   document.getElementById('cSem').textContent=moeda(cSem);
   document.getElementById('cMes').textContent=moeda(cMes);
-  document.getElementById('cFiado').textContent=moeda(cFiado);
+  document.getElementById('cTotal').textContent=moeda(cTotal);
+  document.getElementById('fQtd').textContent=res;
+  document.getElementById('fValor').textContent=moeda(fValor);
+  document.getElementById('fCom').textContent=moeda(cFiado);
+  const fa=document.getElementById('fAtr'); fa.textContent=fAtr; fa.style.color=fAtr?'#ff8a80':'#4cd37b';
   document.getElementById('tituloCom').textContent='💰 Minha comissão ('+String(pct).replace('.',',')+'%)';
-  document.getElementById('txtCom').textContent='Comissão de '+String(pct).replace('.',',')+'% sobre o valor de cada cartela paga. Cartelas fiadas só liberam a comissão quando forem pagas.';
+  document.getElementById('txtCom').textContent='Comissão de '+String(pct).replace('.',',')+'% sobre o valor de cada cartela paga. A comissão dos fiados aparece em "🔮 Vendas futuras" e só é liberada quando o cliente pagar.';
   try{
     let pq=0, pb=0; Object.keys(minhasCartelas).forEach(n=>{ const c=minhasCartelas[n]; if(!c||c.status==='devolvida'||c.pagamento==='Fiado') return; pq++; pb+=Number(c.valor)||0; });
     const liq=pb-pb*pct/100;
@@ -506,8 +523,9 @@ function desenhar(){
   }catch(e){ console.error(e); }
   document.getElementById('kRec').textContent=rec;
   document.getElementById('kVend').textContent=vend;
+  document.getElementById('kRes').textContent=res;
   document.getElementById('kDev').textContent=dev;
-  document.getElementById('kCom').textContent=Math.max(0,rec-vend-dev);
+  document.getElementById('kCom').textContent=Math.max(0,rec-vend-res-dev);
   document.getElementById('tHoje').textContent=hoje;
   document.getElementById('tSem').textContent=sem;
   document.getElementById('tMes').textContent=mes;
@@ -517,14 +535,14 @@ function desenhar(){
         const ls=eu.lotes.slice().sort((a,b)=>(a.data||0)-(b.data||0) || a.de-b.de);
         return '<div style="color:#ffd24a;font-weight:bold;font-size:14px;margin-bottom:2px">📦 Cartelas liberadas para você</div>'
           + ls.map((l,i)=>{
-              let v=0, d=0;
-              Object.keys(todas).forEach(n=>{ const x=Number(n); if(x>=l.de && x<=l.ate && todas[n]){ if(todas[n].status==='devolvida') d++; else v++; } });
-              const tot=l.ate-l.de+1, com=Math.max(0,tot-v-d);
+              let v=0, d=0, r=0;
+              Object.keys(todas).forEach(n=>{ const x=Number(n); if(x>=l.de && x<=l.ate && todas[n]){ if(todas[n].status==='devolvida') d++; else if(todas[n].pagamento==='Fiado') r++; else v++; } });
+              const tot=l.ate-l.de+1, com=Math.max(0,tot-v-r-d);
               const dt=l.data ? new Date(l.data).toLocaleDateString('pt-BR')+' às '+new Date(l.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : 'data não registrada';
               return '<div class="item" style="flex-direction:column;align-items:stretch;color:#fff">'
                 +'<div style="display:flex;justify-content:space-between;gap:8px"><b>'+(i+1)+'ª liberação</b><span style="color:#9db4d8">📅 '+esc(dt)+'</span></div>'
                 +'<div style="font-size:16px;margin-top:2px">Cartelas <b style="color:#ffd24a">'+esc(l.de)+' a '+esc(l.ate)+'</b> <span style="color:#9db4d8;font-size:13px">('+tot+' cartela'+(tot>1?'s':'')+')</span></div>'
-                +'<small>Vendidas: '+v+' • Devolvidas: '+d+' • Com você: <b style="color:'+(com?'#ffd24a':'#4cd37b')+'">'+com+'</b>'+(com===0?' ✅ lote vendido':'')+'</small>'
+                +'<small>Vendidas (pagas): '+v+(r?' • <span style="color:#ffb74d">Fiado: '+r+'</span>':'')+' • Devolvidas: '+d+' • Com você: <b style="color:'+(com?'#ffd24a':'#4cd37b')+'">'+com+'</b>'+(com===0&&r===0?' ✅ lote vendido':'')+'</small>'
                 +'</div>';
             }).join('');
       })()
@@ -604,16 +622,16 @@ function renderTela(){
   if(t.tipo==='vendas'){
     const ns=Object.keys(todas).filter(n=>{ const c=todas[n]; return c && c.status!=='devolvida' && diaStr(c.ts)===t.data; }).sort((a,b)=>(todas[b].ts||0)-(todas[a].ts||0));
     let pago=0, nf=0, com=0; ns.forEach(n=>{ const c=todas[n]; if(c.pagamento==='Fiado') nf++; else { pago+=Number(c.valor)||0; com+=(Number(c.valor)||0)*pct/100; } });
-    tit.textContent='Vendas de '+nomeDia(t.data); sub.textContent=ns.length+' venda(s)';
-    res.innerHTML=kpis([[ns.length,'Cartelas vendidas'],[moeda(pago),'Recebido'],[nf,'Fiado (a receber)','#ffb74d'],[moeda(com),'Minha comissão','#4cd37b']]);
+    tit.textContent='Registros de '+nomeDia(t.data); sub.textContent=(ns.length-nf)+' venda(s) paga(s)'+(nf?' • '+nf+' reservada(s) no fiado':'');
+    res.innerHTML=kpis([[ns.length-nf,'Vendas pagas'],[moeda(pago),'Recebido'],[nf,'🔮 Reservadas (fiado)','#ffb74d'],[moeda(com),'Minha comissão','#4cd37b']]);
     cont.innerHTML=ns.length?ns.map(n=>itemVenda(n,todas[n])).join(''):'<div style="color:#9db4d8">Nenhuma venda nesta data.</div>';
   }else if(t.tipo==='dias'){
     const g={}; Object.keys(todas).forEach(n=>{ const c=todas[n]; if(!c||c.status==='devolvida') return; const d=diaStr(c.ts); const o=g[d]||(g[d]={q:0,p:0,f:0}); o.q++; if(c.pagamento==='Fiado') o.f++; else o.p+=Number(c.valor)||0; });
     const ds=Object.keys(g).sort().reverse();
     let q=0,p=0,f=0; ds.forEach(d=>{ q+=g[d].q; p+=g[d].p; f+=g[d].f; });
     tit.textContent='Resumo das minhas vendas'; sub.textContent='Toque em um dia para ver as vendas';
-    res.innerHTML=kpis([[q,'Cartelas vendidas'],[moeda(p),'Recebido'],[f,'Fiado (a receber)','#ffb74d'],[ds.length,'Dias com venda']]);
-    cont.innerHTML=ds.length?ds.map(d=>'<button class="dia" onclick="abrirTela({tipo:\'vendas\',data:\''+d+'\'})"><span>'+esc(nomeDia(d))+'<br><small style="color:#9db4d8">'+g[d].q+' cartela(s)'+(g[d].f?' • '+g[d].f+' fiado':'')+'</small></span><span style="text-align:right"><b>'+moeda(g[d].p)+'</b><br><small style="color:#9db4d8">ver ▶</small></span></button>').join(''):'<div style="color:#9db4d8">Você ainda não tem vendas.</div>';
+    res.innerHTML=kpis([[q-f,'Vendas pagas'],[moeda(p),'Recebido'],[f,'🔮 Reservadas (fiado)','#ffb74d'],[ds.length,'Dias com registro']]);
+    cont.innerHTML=ds.length?ds.map(d=>'<button class="dia" onclick="abrirTela({tipo:\'vendas\',data:\''+d+'\'})"><span>'+esc(nomeDia(d))+'<br><small style="color:#9db4d8">'+(g[d].q-g[d].f)+' paga(s)'+(g[d].f?' • <span style="color:#ffb74d">'+g[d].f+' fiado</span>':'')+'</small></span><span style="text-align:right"><b>'+moeda(g[d].p)+'</b><br><small style="color:#9db4d8">ver ▶</small></span></button>').join(''):'<div style="color:#9db4d8">Você ainda não tem vendas.</div>';
   }else if(t.tipo==='fiados'){
     let ns=listaFiadosAtuais();
     const hj=hojeStr(), am=amanhaStr();
@@ -1059,8 +1077,9 @@ const TOUR_PASSOS=[
   {sel:'#vNome', titulo:'2. Dados do comprador', texto:'Preencha o <b>nome</b> e o <b>telefone com DDD</b> do comprador. A <b>comunidade</b> é opcional: se não souber, pode deixar em branco.'},
   {sel:'#vPag', titulo:'3. Forma de pagamento', texto:'Escolha <b>Dinheiro</b>, <b>Pix</b> ou <b>Cartão</b>. Se o cliente vai pagar depois, escolha <b>Fiado</b> e informe a <b>data prevista</b> do pagamento: a cartela fica reservada no nome dele.'},
   {sel:'button[onclick="registrarVenda()"]', titulo:'4. Registrar e enviar o comprovante', texto:'Toque em <b>REGISTRAR VENDA</b> e confirme. Abre o <b>comprovante</b> com o boneco do Bingão: toque em <b>📤 Enviar / Compartilhar</b> para mandar pelo WhatsApp ao cliente, ou baixe/imprima.'},
-  {sel:'#kRec', card:true, titulo:'Minhas cartelas', texto:'Quantas cartelas você <b>recebeu</b>, <b>vendeu</b>, <b>devolveu</b> e quantas ainda estão <b>com você</b>. Embaixo aparece cada <b>liberação de cartelas</b>: a sequência (ex.: 1 a 50), a <b>data</b> em que foi entregue e quantas já vendeu de cada uma.'},
-  {sel:'#cHoje', card:true, titulo:'💰 Minha comissão', texto:'Quanto você ganhou hoje, na semana e no mês. A comissão das vendas fiadas fica em <b>"A liberar"</b> até o cliente pagar.'},
+  {sel:'#kRec', card:true, titulo:'Minhas cartelas', texto:'Quantas cartelas você <b>recebeu</b>, quantas estão <b>com você</b>, quantas <b>vendeu (pagas)</b>, quantas estão <b>reservadas no fiado</b> e quantas <b>devolveu</b>. Embaixo aparece cada <b>liberação de cartelas</b>: a sequência (ex.: 1 a 50), a <b>data</b> em que foi entregue e quantas já vendeu de cada uma.'},
+  {sel:'#fQtd', card:true, titulo:'🔮 Vendas futuras (fiado)', texto:'Cartela no fiado <b>ainda não é venda</b>: fica aqui separada, com o valor a receber e a <b>comissão futura</b>. Quando o cliente pagar, ela passa para <b>Minhas vendas</b> e a comissão é liberada.'},
+  {sel:'#cHoje', card:true, titulo:'💰 Minha comissão', texto:'Quanto você já ganhou hoje, na semana, no mês e no total, só com cartelas <b>pagas</b>.'},
   {sel:'#pcQtd', card:true, titulo:'🏦 Prestação de contas', texto:'Mostra quanto você precisa entregar ao gerente (<b>valor das cartelas pagas menos a sua comissão</b>), quanto já entregou e quanto ainda <b>falta prestar</b>.'},
   {sel:'#abasV', titulo:'As 3 abas do app', texto:'<b>🏠 Início</b>: registrar vendas e ver seus números. <b>🔎 Minhas vendas</b>: consultar as vendas de qualquer dia. <b>🤝 Fiados</b>: acompanhar quem ainda vai pagar. O número vermelho na aba Fiados avisa quantos estão atrasados ou vencendo.'},
   {aba:'consulta', sel:'#cData', card:true, titulo:'🔎 Consultar vendas', texto:'Escolha uma data (ou toque em <b>Hoje</b> / <b>Ontem</b>) e toque em <b>VER VENDAS DESTA DATA</b>: abre uma tela com as vendas do dia, o total recebido e a sua comissão. Lá você também reenvia o <b>🧾 comprovante</b>. O botão <b>📋 Resumo</b> mostra todos os dias em que você vendeu.'},

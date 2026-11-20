@@ -102,11 +102,14 @@ td:first-child,th:first-child{text-align:left}
 
   <div class="card" data-aba="resumo">
     <h2>Resumo ao vivo</h2>
+    <div style="font-size:12px;color:#9db4d8;margin:-4px 0 8px">Vendas pagas contam pela data do pagamento. Cartelas fiadas aparecem separadas, como venda futura, até serem pagas.</div>
     <div class="grade">
-      <div class="kpi"><b id="rHoje">0</b><span>Vendidas hoje</span></div>
-      <div class="kpi"><b id="rSem">0</b><span>Na semana</span></div>
-      <div class="kpi"><b id="rMes">0</b><span>No mês</span></div>
-      <div class="kpi"><b id="rTotal">0</b><span>Total vendidas</span></div>
+      <div class="kpi"><b id="rHoje">0</b><span>Vendas pagas hoje</span></div>
+      <div class="kpi"><b id="rSem">0</b><span>Pagas na semana</span></div>
+      <div class="kpi"><b id="rMes">0</b><span>Pagas no mês</span></div>
+      <div class="kpi"><b id="rTotal">0</b><span>Total de vendas pagas</span></div>
+      <div class="kpi" style="border:1px solid #ff9f1c"><b id="rReserv" style="color:#ffb74d">0</b><span>🔮 Reservadas (fiado) - venda futura</span></div>
+      <div class="kpi" style="border:1px solid #ff9f1c"><b id="rComFut" style="color:#ffb74d">R$ 0</b><span>🔮 Comissão futura (fiados)</span></div>
       <div class="kpi"><b id="rValor">R$ 0</b><span>Recebido total</span></div>
       <div class="kpi"><b id="rValorHoje">R$ 0</b><span>Recebido hoje</span></div>
       <div class="kpi"><b id="rFiado">R$ 0</b><span>A receber (fiado)</span></div>
@@ -208,7 +211,7 @@ td:first-child,th:first-child{text-align:left}
   <div class="card" data-aba="grupos">
     <h2>Ranking das equipes</h2>
     <div class="rolar"><table>
-      <thead><tr><th>Equipe</th><th>Vendedores</th><th>Entregues</th><th>Vendidas</th><th>% vendido</th><th>Hoje</th><th>Semana</th><th>Pagas</th><th>Fiado</th><th>Valor pago</th><th>Comissão</th><th>Líquido</th><th>Prestado</th><th>Falta prestar</th></tr></thead>
+      <thead><tr><th>Equipe</th><th>Vendedores</th><th>Entregues</th><th>Vendidas (pagas)</th><th>% vendido</th><th>Hoje</th><th>Semana</th><th>Pagas</th><th>🔮 Fiado</th><th>Valor pago</th><th>Comissão</th><th>Líquido</th><th>Prestado</th><th>Falta prestar</th></tr></thead>
       <tbody id="eqTabela"></tbody>
     </table></div>
     <div style="font-size:12px;color:#9db4d8;margin-top:6px">A equipe é a que está no cadastro do vendedor agora: se você trocar um vendedor de equipe, as vendas dele vão junto. "Fiado" mostra a quantidade de cartelas reservadas e o valor ainda a receber. Comissão, líquido e prestação contam só cartelas pagas. Vermelho = ainda deve ao caixa.</div>
@@ -228,7 +231,7 @@ td:first-child,th:first-child{text-align:left}
   <div class="card" data-aba="resumo">
     <h2>Desempenho por vendedor</h2>
     <div class="rolar"><table>
-      <thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas</th><th>Devolv.</th><th>Comigo</th><th>Hoje</th><th>Semana</th><th>Mês</th><th>Recebido</th><th>A receber</th><th>Comissão (mês)</th></tr></thead>
+      <thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas (pagas)</th><th>🔮 Reservadas (fiado)</th><th>Devolv.</th><th>Com ele</th><th>Hoje</th><th>Semana</th><th>Mês</th><th>Recebido (mês)</th><th>A receber (fiado)</th><th>Comissão (mês)</th><th>🔮 Comissão futura</th></tr></thead>
       <tbody id="tabela"></tbody>
     </table></div>
   </div>
@@ -499,9 +502,25 @@ td:first-child,th:first-child{text-align:left}
   </div>
 
   <div class="card" data-aba="resumo">
-    <h2>Últimas vendas</h2>
-    <div id="feed"></div>
-    <button class="b-azul" onclick="baixarCSV('todas')">⬇ Baixar todas as vendas (planilha)</button>
+    <h2>🔎 Consultar vendas</h2>
+    <div id="cvInfo" style="font-size:13px;color:#9db4d8;margin-bottom:4px"></div>
+    <div class="linha">
+      <div><label>Vendedor</label><select id="cvVend"><option value="">Todos os vendedores</option></select></div>
+      <div><label>Equipe</label><select id="cvGrupo"><option value="">Todas as equipes</option></select></div>
+    </div>
+    <div class="linha">
+      <div><label>Data (vazio = todas as datas)</label><input id="cvData" type="date"></div>
+      <div><label>Pagamento</label><select id="cvPag"><option value="">Todos</option><option>Dinheiro</option><option>Pix</option><option>Cartão</option><option>Fiado</option></select></div>
+    </div>
+    <div class="linha">
+      <button class="b-cinza" onclick="cvDataRapida(0)">Hoje</button>
+      <button class="b-cinza" onclick="cvDataRapida(-1)">Ontem</button>
+      <button class="b-cinza" onclick="cvLimpar()">Limpar filtros</button>
+    </div>
+    <label>Buscar nº da cartela ou nome do comprador (opcional)</label>
+    <input id="cvBusca" autocomplete="off" placeholder="Ex.: 1250 ou Maria" onkeydown="if(event.key==='Enter')abrirConsultaVendas()">
+    <button class="b-ouro" style="width:100%" onclick="abrirConsultaVendas()">VER VENDAS</button>
+    <button class="b-azul" style="width:100%" onclick="baixarCSV('todas')">⬇ Baixar todas as vendas (planilha)</button>
   </div>
 </div>
 </div>
@@ -516,6 +535,17 @@ td:first-child,th:first-child{text-align:left}
   </div>
 </div>
 
+
+<div id="telaCV" style="display:none;position:fixed;inset:0;background:#0b1d3a;z-index:40;overflow:auto">
+  <div style="position:sticky;top:0;background:#14305f;padding:10px 14px;display:flex;align-items:center;gap:12px;z-index:2;box-shadow:0 2px 8px rgba(0,0,0,.4)">
+    <button class="b-cinza" style="margin:0" onclick="fecharConsultaVendas()">◀ Voltar</button>
+    <div><div id="cvTit" style="font-weight:bold;color:#ffd24a;font-size:16px"></div><div id="cvSub" style="font-size:12px;color:#9db4d8"></div></div>
+  </div>
+  <div style="max-width:900px;margin:0 auto;padding:14px">
+    <div id="cvResumo"></div>
+    <div class="card"><div id="cvLista"></div></div>
+  </div>
+</div>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyCLC7C8mGgoWZUGGARH-D_5KhVAb81a9xY",
@@ -747,14 +777,14 @@ function renderEquipes(){
     pv[id]={id:id,nome:vendedores[id].nome,ent:ent,vend:0,dev:0,hoje:0,sem:0,fq:0,fv:0}; });
   let totalVend=0;
   Object.keys(cartelas).forEach(n=>{ const c=cartelas[n]; if(!c) return;
-    if(c.status!=='devolvida') totalVend++;
+    if(c.status!=='devolvida' && c.pagamento!=='Fiado') totalVend++;
     const o=pv[c.vendedorId]; if(!o) return;
     if(c.status==='devolvida'){ o.dev++; return; }
-    o.vend++; const t=c.ts||0; if(t>=iDia) o.hoje++; if(t>=iSem) o.sem++;
-    if(c.pagamento==='Fiado'){ o.fq++; o.fv+=Number(c.valor)||0; } });
+    if(c.pagamento==='Fiado'){ o.fq++; o.fv+=Number(c.valor)||0; return; }
+    o.vend++; const t=(c.eraFiado && c.pagoEm) ? c.pagoEm : (c.ts||0); if(t>=iDia) o.hoje++; if(t>=iSem) o.sem++; });
   const CAMPOS=['ent','vend','dev','comigo','hoje','sem','pagas','bruto','com','liq','prest','falta','fq','fv'];
   Object.keys(pv).forEach(id=>{ const o=pv[id], p=pc[id]||{q:0,b:0,com:0,liq:0,pv:0,fv:0};
-    o.pagas=p.q; o.bruto=p.b; o.com=p.com; o.liq=p.liq; o.prest=p.pv; o.falta=p.fv; o.comigo=Math.max(0,o.ent-o.vend-o.dev); });
+    o.pagas=p.q; o.bruto=p.b; o.com=p.com; o.liq=p.liq; o.prest=p.pv; o.falta=p.fv; o.comigo=Math.max(0,o.ent-o.vend-o.fq-o.dev); });
 
   const G={};
   Object.keys(pv).forEach(id=>{ const nome=grupoDe(id), k=nome?norm(nome):'';
@@ -794,7 +824,7 @@ function renderEquipes(){
   document.getElementById('eqDetalhe').innerHTML = ks.map((k,i)=>{ const g=G[k];
     const ids=g.ids.slice().sort((a,b)=>pv[b].vend-pv[a].vend||pv[b].bruto-pv[a].bruto);
     return '<details class="vend" data-k="'+esc(k)+'"'+(abertas[k]?' open':'')+'><summary style="cursor:pointer;font-size:15px"><b style="color:#ffd24a">'+(k===''?'':(i+1)+'º ')+esc(g.nome)+'</b> • '+g.ids.length+' vendedor(es) • '+g.vend+' vendidas • '+moeda(g.bruto)+' pago</summary>'
-      +'<div class="rolar" style="margin-top:8px"><table><thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas</th><th>% vendido</th><th>Hoje</th><th>Semana</th><th>Pagas</th><th>Fiado</th><th>Valor pago</th><th>Comissão</th><th>Líquido</th><th>Prestado</th><th>Falta prestar</th></tr></thead><tbody>'
+      +'<div class="rolar" style="margin-top:8px"><table><thead><tr><th>Vendedor</th><th>Entregues</th><th>Vendidas (pagas)</th><th>% vendido</th><th>Hoje</th><th>Semana</th><th>Pagas</th><th>🔮 Fiado</th><th>Valor pago</th><th>Comissão</th><th>Líquido</th><th>Prestado</th><th>Falta prestar</th></tr></thead><tbody>'
       +ids.map((id,j)=>'<tr>'+linha((j+1)+'º '+esc(pv[id].nome)+(g.vend?' <small style="color:#9db4d8">('+Math.round(pv[id].vend*100/g.vend)+'% da equipe)</small>':''),pv[id],null)+'</tr>').join('')
       +'</tbody></table></div></details>'; }).join('') || '<div style="color:#9db4d8">Nenhum vendedor.</div>';
 }
@@ -914,9 +944,9 @@ function desenhar(){
   const st={}; // por vendedor
   Object.keys(vendedores).forEach(id=>{
     let ent=0; lotesDe(id).forEach(l=>{ent+=l.ate-l.de+1;});
-    st[id]={ent:ent,vend:0,dev:0,hoje:0,sem:0,mes:0,valor:0,fiado:0,devList:[]};
+    st[id]={ent:ent,vend:0,res:0,dev:0,hoje:0,sem:0,mes:0,valor:0,fiado:0,devList:[]};
   });
-  let tHoje=0,tSem=0,tMes=0,tTotal=0,vTotal=0,vHoje=0;
+  let tHoje=0,tSem=0,tMes=0,tTotal=0,vTotal=0,vHoje=0,tPagas=0,tRes=0;
   const pg={}; let fiadoTotal=0, atrasados=0; const fiadoList=[]; const hojeS=hojeStr();
   const vendas=[];
   Object.keys(cartelas).forEach(n=>{
@@ -928,11 +958,16 @@ function desenhar(){
     else { vTotal+=Number(c.valor)||0; if((c.pagoEm||c.ts||0)>=iDia) vHoje+=Number(c.valor)||0; }
     const fp=c.pagamento||'Não informado'; pg[fp]=pg[fp]||{q:0,v:0,h:0}; pg[fp].q++; pg[fp].v+=Number(c.valor)||0; if((c.ts||0)>=iDia) pg[fp].h+=Number(c.valor)||0;
     vendas.push({n:n,c:c});
-    const t=c.ts||0;
-    if(t>=iDia){tHoje++;}
-    if(t>=iSem)tSem++;
-    if(t>=iMes)tMes++;
-    if(s){ s.vend++; if(t>=iDia)s.hoje++; if(t>=iSem)s.sem++; if(t>=iMes){s.mes++;if(!ehF) s.valor+=Number(c.valor)||0;} if(s&&ehF) s.fiado+=Number(c.valor)||0; }
+    // venda paga conta pela data do pagamento; fiado fica separado (venda futura)
+    const t=(c.eraFiado && c.pagoEm) ? c.pagoEm : (c.ts||0);
+    if(ehF){ tRes++; if(s){ s.res++; s.fiado+=Number(c.valor)||0; } }
+    else{
+      tPagas++;
+      if(t>=iDia) tHoje++;
+      if(t>=iSem) tSem++;
+      if(t>=iMes) tMes++;
+      if(s){ s.vend++; if(t>=iDia)s.hoje++; if(t>=iSem)s.sem++; if(t>=iMes){ s.mes++; s.valor+=Number(c.valor)||0; } }
+    }
   });
   document.getElementById('tabPag').innerHTML=Object.keys(pg).sort().map(f=>'<tr><td>'+esc(f)+'</td><td>'+pg[f].q+'</td><td>'+moeda(pg[f].v)+'</td><td>'+moeda(pg[f].h)+'</td></tr>').join('')||'<tr><td colspan="4" style="color:#9db4d8">Nenhuma venda ainda.</td></tr>';
   { const mp={};
@@ -941,11 +976,14 @@ function desenhar(){
     const ord=Object.keys(mp).sort((a,b)=>mp[b].q-mp[a].q);
     document.getElementById('tabCom').innerHTML=ord.map(k=>{ const o=mp[k]; return '<tr><td>'+(k===''?'<span style="color:#9db4d8">'+esc(o.nome)+'</span>':esc(o.nome))+'</td><td>'+o.q+'</td><td>'+moeda(o.v)+'</td><td>'+moeda(o.f)+'</td></tr>'; }).join('')||'<tr><td colspan="4" style="color:#9db4d8">Nenhuma venda ainda.</td></tr>'; }
   let entTotal=0, comTotal=0;
-  Object.keys(st).forEach(id=>{ entTotal+=st[id].ent; comTotal+=Math.max(0,st[id].ent-st[id].vend-st[id].dev); });
+  Object.keys(st).forEach(id=>{ entTotal+=st[id].ent; comTotal+=Math.max(0,st[id].ent-st[id].vend-st[id].res-st[id].dev); });
   document.getElementById('rHoje').textContent=tHoje;
   document.getElementById('rSem').textContent=tSem;
   document.getElementById('rMes').textContent=tMes;
-  document.getElementById('rTotal').textContent=tTotal;
+  document.getElementById('rTotal').textContent=tPagas;
+  document.getElementById('rReserv').textContent=tRes;
+  document.getElementById('rComFut').textContent=moeda(fiadoTotal*pctCom()/100);
+  window._tPagas=tPagas;
   document.getElementById('rValor').textContent=moeda(vTotal);
   document.getElementById('rValorHoje').textContent=moeda(vHoje);
   renderExtras(vTotal,fiadoTotal,tTotal,entTotal);
@@ -999,7 +1037,7 @@ function desenhar(){
 
   const rank=ids.slice().sort((a,b)=>st[b].mes-st[a].mes||st[b].vend-st[a].vend);
   document.getElementById('tabela').innerHTML = rank.map(id=>{ const s=st[id];
-    return '<tr><td>'+esc(vendedores[id].nome)+'</td><td>'+s.ent+'</td><td>'+s.vend+'</td><td>'+s.dev+'</td><td>'+Math.max(0,s.ent-s.vend-s.dev)+'</td><td>'+s.hoje+'</td><td>'+s.sem+'</td><td>'+s.mes+'</td><td>'+moeda(s.valor)+'</td><td>'+moeda(s.fiado)+'</td><td>'+moeda(s.valor*pctCom()/100)+'</td></tr>';
+    return '<tr><td>'+esc(vendedores[id].nome)+'</td><td>'+s.ent+'</td><td><b>'+s.vend+'</b></td><td style="color:#ffb74d">'+s.res+'</td><td>'+s.dev+'</td><td>'+Math.max(0,s.ent-s.vend-s.res-s.dev)+'</td><td>'+s.hoje+'</td><td>'+s.sem+'</td><td>'+s.mes+'</td><td>'+moeda(s.valor)+'</td><td style="color:#ffb74d">'+moeda(s.fiado)+'</td><td>'+moeda(s.valor*pctCom()/100)+'</td><td style="color:#ffb74d">'+moeda(s.fiado*pctCom()/100)+'</td></tr>';
   }).join('');
 
   const ck=Object.keys(conflitos).filter(k=>conflitos[k]);
@@ -1009,11 +1047,85 @@ function desenhar(){
     return '<div class="item"><div><b>Cartela '+esc(c.n)+'</b><small>Registro recusado: '+esc(c.comprador)+' • '+esc(c.telefone)+' • vendedor '+esc(c.vendedorNome)+'</small><small>Venda válida: '+esc(o.comprador||'-')+' • '+esc(o.telefone||'-')+' • vendedor '+esc(o.vendedorNome||'-')+'</small></div><div><button class="b-ouro b-peq" onclick="resolverConflito(\''+esc(k)+'\')">Resolvido</button></div></div>';
   }).join('');
   vendas.sort((a,b)=>b.c.ts-a.c.ts);
-  document.getElementById('feed').innerHTML = vendas.slice(0,30).map(x=>{
+  window._vendasAdm=vendas;
+  try{ prepararConsultaVendas(); }catch(e){ console.error(e); }
+}
+function itemFeed(x){
     const d=new Date(x.c.ts);
     return '<div class="item"><div><b>Cartela '+esc(x.n)+'</b> - '+esc(x.c.comprador)+'<small>'+esc(x.c.telefone)+' • '+esc(x.c.vendedorNome)+' • <b>'+esc(x.c.pagamento||'sem forma')+(x.c.pagamento==='Fiado'?' (prev. '+esc(fmtData(x.c.dataPrevista))+')':'')+'</b> • '+NOMEFASE[faseDe(x.c,limites())]+' • '+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' • 📍 '+esc(x.c.comunidade||'sem comunidade')+'</small></div>'
-      +'<div style="text-align:right">'+moeda(x.c.valor)+'<br><a href="#" style="color:#ffd24a;font-size:12px" onclick="alterarPagamento(\''+esc(x.n)+'\');return false">alterar pgto</a><br><a href="#" style="color:#ffd24a;font-size:12px" onclick="alterarComunidade(\''+esc(x.n)+'\');return false">alterar local</a><br><a href="#" style="color:#ff8a80;font-size:12px" onclick="estornar(\''+esc(x.n)+'\');return false">estornar</a></div></div>';
-  }).join('') || '<div style="color:#9db4d8">Nenhuma venda ainda.</div>';
+      +'<div style="text-align:right;white-space:nowrap;padding-left:8px">'+moeda(x.c.valor)+'<br><a href="#" style="color:#ffd24a;font-size:12px" onclick="alterarPagamento(\''+esc(x.n)+'\');return false">alterar pgto</a><br><a href="#" style="color:#ffd24a;font-size:12px" onclick="alterarComunidade(\''+esc(x.n)+'\');return false">alterar local</a><br><a href="#" style="color:#ff8a80;font-size:12px" onclick="estornar(\''+esc(x.n)+'\');return false">estornar</a></div></div>';
+}
+
+/* ---------- CONSULTA DE VENDAS (abre em outra tela) ---------- */
+let cvFiltro=null, cvLimite=50;
+function diaISO(ts){ const d=new Date(ts||0); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function prepararConsultaVendas(){
+  const vs=window._vendasAdm||[];
+  const sv=document.getElementById('cvVend'); if(!sv) return;
+  const ids=Object.keys(vendedores).sort((a,b)=>norm(vendedores[a].nome).localeCompare(norm(vendedores[b].nome)));
+  const chV=ids.map(i=>i+':'+vendedores[i].nome).join('|');
+  if(sv.getAttribute('data-k')!==chV){ const cur=sv.value; sv.setAttribute('data-k',chV); sv.innerHTML='<option value="">Todos os vendedores</option>'+ids.map(i=>'<option value="'+esc(i)+'">'+esc(vendedores[i].nome)+'</option>').join(''); sv.value=cur; }
+  const sg=document.getElementById('cvGrupo'); const gs=listaGrupos(); const chG=gs.join('|');
+  if(sg.getAttribute('data-k')!==chG){ const cur=sg.value; sg.setAttribute('data-k',chG); sg.innerHTML='<option value="">Todas as equipes</option>'+gs.map(g=>'<option value="'+esc(norm(g))+'">'+esc(g)+'</option>').join('')+'<option value="__sem">Sem equipe</option>'; sg.value=cur; }
+  const hj=hojeISO(); const nh=vs.filter(x=>diaISO(x.c.ts)===hj).length;
+  const u=vs[0];
+  document.getElementById('cvInfo').innerHTML = vs.length
+    ? 'Hoje: <b style="color:#ffd24a">'+nh+'</b> venda(s) • Total: <b>'+vs.length+'</b>'+(u?'<br>Última: cartela <b>'+esc(u.n)+'</b> às '+new Date(u.c.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+(diaISO(u.c.ts)!==hj?' de '+new Date(u.c.ts).toLocaleDateString('pt-BR'):'')+' por '+esc(u.c.vendedorNome||'-'):'')
+    : 'Nenhuma venda ainda.';
+  if(cvFiltro) renderConsultaVendas();
+}
+function cvDataRapida(d){ const x=new Date(); x.setDate(x.getDate()+d); document.getElementById('cvData').value=diaISO(x.getTime()); }
+function cvLimpar(){ ['cvVend','cvGrupo','cvData','cvPag','cvBusca'].forEach(i=>document.getElementById(i).value=''); }
+function filtrarVendas(f){
+  const q=norm(f.busca||''), qn=q.replace(/\D/g,''), soNum=q && /^\d+$/.test(q.replace(/\s/g,''));
+  return (window._vendasAdm||[]).filter(x=>{ const c=x.c;
+    if(f.vend && c.vendedorId!==f.vend) return false;
+    if(f.grupo){ const g=grupoDe(c.vendedorId); if(f.grupo==='__sem'){ if(g) return false; } else if(norm(g)!==f.grupo) return false; }
+    if(f.data && diaISO(c.ts)!==f.data) return false;
+    if(f.pag && c.pagamento!==f.pag) return false;
+    if(q){ if(soNum){ if(String(x.n)!==qn) return false; } else if(norm(c.comprador).indexOf(q)<0) return false; }
+    return true; });
+}
+function abrirConsultaVendas(){
+  const g=id=>document.getElementById(id).value;
+  cvFiltro={vend:g('cvVend'),grupo:g('cvGrupo'),data:g('cvData'),pag:g('cvPag'),busca:g('cvBusca').trim()};
+  cvLimite=50;
+  renderConsultaVendas();
+  const t=document.getElementById('telaCV'); t.style.display='block'; t.scrollTop=0;
+  try{ history.pushState({telaCV:1},''); }catch(e){}
+}
+function fecharConsultaVendas(){ if(history.state && history.state.telaCV){ history.back(); return; } esconderConsultaVendas(); }
+function esconderConsultaVendas(){ cvFiltro=null; document.getElementById('telaCV').style.display='none'; }
+window.addEventListener('popstate',()=>{ if(cvFiltro) esconderConsultaVendas(); });
+function cvMais(){ cvLimite+=50; renderConsultaVendas(); }
+function renderConsultaVendas(){
+  const f=cvFiltro; if(!f) return;
+  const lst=filtrarVendas(f);
+  const pct=pctCom();
+  let pago=0, nf=0, vf=0; const porV={};
+  lst.forEach(x=>{ const c=x.c, v=Number(c.valor)||0; if(c.pagamento==='Fiado'){ nf++; vf+=v; } else pago+=v;
+    const k=c.vendedorId||'-'; const o=porV[k]||(porV[k]={nome:c.vendedorNome||'-',q:0,p:0,f:0}); o.q++; if(c.pagamento==='Fiado') o.f++; else o.p+=v; });
+  const partes=[];
+  if(f.vend) partes.push('👤 '+((vendedores[f.vend]||{}).nome||'vendedor'));
+  if(f.grupo) partes.push(f.grupo==='__sem'?'👥 Sem equipe':'👥 '+(listaGrupos().find(x=>norm(x)===f.grupo)||f.grupo));
+  partes.push(f.data?'📅 '+fmtData(f.data):'📅 Todas as datas');
+  if(f.pag) partes.push('💳 '+f.pag);
+  if(f.busca) partes.push('🔎 "'+f.busca+'"');
+  document.getElementById('cvTit').textContent='Vendas • '+lst.length+' encontrada(s)'+(nf?' ('+nf+' fiado)':'');
+  document.getElementById('cvSub').textContent=partes.join(' • ');
+  const vs=Object.keys(porV).sort((a,b)=>porV[b].q-porV[a].q);
+  document.getElementById('cvResumo').innerHTML='<div class="card"><div class="grade">'
+    +'<div class="kpi"><b>'+(lst.length-nf)+'</b><span>Vendas pagas</span></div>'
+    +'<div class="kpi"><b>'+moeda(pago)+'</b><span>Recebido</span></div>'
+    +'<div class="kpi"><b style="color:#ffb74d">'+nf+'</b><span>🔮 Reservadas (fiado) • '+moeda(vf)+'</span></div>'
+    +'<div class="kpi"><b style="color:#4cd37b">'+moeda(pago*pct/100)+'</b><span>Comissão'+(vf?' • futura '+moeda(vf*pct/100):'')+'</span></div></div>'
+    +(!f.vend && vs.length>1?'<details style="margin-top:10px"><summary style="cursor:pointer;color:#ffd24a">Ver por vendedor ('+vs.length+')</summary><div class="rolar" style="margin-top:6px"><table><thead><tr><th>Vendedor</th><th>Pagas</th><th>Recebido</th><th>🔮 Fiado</th></tr></thead><tbody>'
+      +vs.map(k=>'<tr><td>'+esc(porV[k].nome)+'</td><td>'+(porV[k].q-porV[k].f)+'</td><td>'+moeda(porV[k].p)+'</td><td>'+porV[k].f+'</td></tr>').join('')+'</tbody></table></div></details>':'')
+    +'</div>';
+  document.getElementById('cvLista').innerHTML = lst.length
+    ? lst.slice(0,cvLimite).map(itemFeed).join('')
+      +(lst.length>cvLimite?'<button class="b-azul" style="width:100%" onclick="cvMais()">Mostrar mais ('+(lst.length-cvLimite)+' restantes)</button>':'')
+    : '<div style="color:#9db4d8">Nenhuma venda encontrada com esses filtros.</div>';
 }
 
 
@@ -1136,7 +1248,7 @@ function renderGraficos(){
   if(!document.getElementById('gcGeral')) return;
   const metr=document.getElementById('gcMetrica').value, modo=document.getElementById('gcModo').value;
   const vend=[];
-  Object.keys(cartelas).forEach(n=>{ const c=cartelas[n]; if(!c||c.status==='devolvida'||!c.ts) return; vend.push(c); });
+  Object.keys(cartelas).forEach(n=>{ const c=cartelas[n]; if(!c||c.status==='devolvida'||!c.ts) return; vend.push((c.eraFiado&&c.pagoEm)?Object.assign({},c,{ts:c.pagoEm}):c); });
   if(!vend.length){
     ['gcGeral','gcPagto','gcVend'].forEach(id=>document.getElementById(id).innerHTML='<div style="color:#9db4d8">Ainda não há vendas para mostrar.</div>');
     ['gcPE','gcPagtoBarras','gcVendBarras','gcCom'].forEach(id=>document.getElementById(id).innerHTML='');
@@ -1162,7 +1274,7 @@ function renderGraficos(){
     const meta=Number(config.metaCartelas)||0;
     if(meta) refs.push({valor:metr==='v'?meta*preco:meta,rotulo:'Meta ('+meta+')',cor:'#4cd37b'});
   }
-  const geral=[{nome:'Total de vendas',cor:'#ffd24a',valores:serie(()=>true)}];
+  const geral=[{nome:'Vendas pagas',cor:'#ffd24a',valores:serie(c=>c.pagamento!=='Fiado')},{nome:'Reservadas (fiado)',cor:'#ff9f1c',valores:serie(c=>c.pagamento==='Fiado')}];
   document.getElementById('gcGeral').innerHTML=svgLinhas(dias,geral,refs,metr,true)
     +legenda(geral.concat(refs.map(r=>({nome:r.rotulo,cor:r.cor}))));
   const tq=vend.length, tv=vend.reduce((a,c)=>a+(Number(c.valor)||0),0);
@@ -1502,23 +1614,24 @@ function renderDespesasEResultado(vTotal,fiadoTotal,tTotal,entTotal){
   const cvu=varU+preco*comPct;           // custo variável por cartela (inclui comissão)
   const mc=preco-cvu;                    // margem por cartela
   const pe= mc>0 ? Math.ceil(fixos/mc) : null;
-  const realizado = vTotal - fixos - varU*tTotal - comPct*vTotal;
+  const tPg = (window._tPagas!=null) ? window._tPagas : tTotal; // só vendas pagas
+  const realizado = vTotal - fixos - varU*tPg - comPct*vTotal;
   const comFiado = (vTotal+fiadoTotal) - fixos - varU*tTotal - comPct*(vTotal+fiadoTotal);
   const projetado = meta*preco - fixos - varU*meta - comPct*meta*preco;
   const cor=v=>v>=0?'bom':'ruim';
-  const pct = pe ? Math.min(100, Math.round(tTotal/pe*100)) : 0;
+  const pct = pe ? Math.min(100, Math.round(tPg/pe*100)) : 0;
   let h='<div class="grade">'
     +'<div class="kpi"><b>'+moeda(fixos)+'</b><span>Despesas fixas</span></div>'
     +'<div class="kpi"><b>'+moeda(cvu)+'</b><span>Custo variável por cartela (com comissão)</span></div>'
     +'<div class="kpi"><b>'+moeda(mc)+'</b><span>Sobra por cartela vendida</span></div>'
     +'<div class="kpi"><b>'+(pe===null?'-':pe)+'</b><span>PONTO DE EQUILÍBRIO (cartelas)</span></div>'
     +'<div class="kpi"><b>'+(pe===null?'-':moeda(pe*preco))+'</b><span>Ponto de equilíbrio (R$)</span></div>'
-    +'<div class="kpi"><b>'+tTotal+'</b><span>Cartelas vendidas até agora</span></div>'
+    +'<div class="kpi"><b>'+tPg+'</b><span>Vendas pagas até agora'+(tTotal>tPg?' (+'+(tTotal-tPg)+' fiado)':'')+'</span></div>'
     +'</div>';
   if(!preco) h+='<div class="msg erro" style="display:block">Defina o preço da cartela na aba Config.</div>';
   else if(pe===null) h+='<div class="msg erro" style="display:block">Cada cartela custa mais do que o preço. Revise as despesas variáveis e a comissão.</div>';
   else{
-    h+='<div style="margin-top:10px;font-size:14px">'+(tTotal>=pe?'✅ <b class="bom">Ponto de equilíbrio atingido!</b> Já passou '+(tTotal-pe)+' cartela(s).':'Faltam <b>'+(pe-tTotal)+'</b> cartela(s) para empatar as despesas.')+'</div>'
+    h+='<div style="margin-top:10px;font-size:14px">'+(tPg>=pe?'✅ <b class="bom">Ponto de equilíbrio atingido!</b> Já passou '+(tPg-pe)+' cartela(s) paga(s).':'Faltam <b>'+(pe-tPg)+'</b> cartela(s) paga(s) para empatar as despesas.'+(tTotal>tPg?' ('+(tTotal-tPg)+' reservada(s) no fiado ainda não contam.)':''))+'</div>'
       +'<div class="barra"><div style="width:'+pct+'%"></div></div><div style="font-size:12px;color:#9db4d8">'+pct+'% do ponto de equilíbrio</div>';
   }
   h+='<div style="margin-top:14px">'
@@ -1773,9 +1886,9 @@ const TOUR_PASSOS=[
   {aba:'equipe', sel:'#nvNome', card:true, titulo:'3. Cadastre os vendedores', texto:'Preencha o <b>nome de login</b> (curto, ex.: Maria), o <b>PIN</b> (4 a 8 números), os dados pessoais e a foto. O vendedor entra no app dele com esse nome e esse PIN.'},
   {aba:'equipe', sel:'#nvGrupo', titulo:'👥 Equipe de vendas', texto:'Se o vendedor vai trabalhar em grupo, digite o nome da equipe (ex.: <b>Equipe Sede</b>). Para colocar outro vendedor na mesma equipe, escolha o mesmo nome na lista. Quem vende sozinho deixa em branco.'},
   {aba:'equipe', sel:'#listaVendedores', card:true, titulo:'4. Entregue os lotes de cartelas', texto:'Cada vendedor tem um cartão. Em <b>Lote: do nº ... até o nº</b> você registra a faixa de cartelas que entregou a ele. Ele só consegue vender as cartelas dos lotes dele. Aqui também ficam: <b>Marcar devolvida</b>, <b>Trocar PIN</b>, <b>Trocar equipe</b>, Desativar e Excluir.'},
-  {aba:'resumo', sel:'#rHoje', card:true, titulo:'5. Acompanhe ao vivo', texto:'As vendas aparecem aqui <b>na hora</b> em que o vendedor registra (ou quando o celular dele volta a ter internet). Veja as vendidas hoje, na semana e no mês, o valor recebido, o fiado a receber e quantas cartelas ainda estão com os vendedores.'},
+  {aba:'resumo', sel:'#rHoje', card:true, titulo:'5. Acompanhe ao vivo', texto:'As vendas aparecem aqui <b>na hora</b> em que o vendedor registra (ou quando o celular dele volta a ter internet). Os números de vendas contam <b>só cartelas pagas</b>. As cartelas no <b>fiado</b> aparecem separadas, em laranja, como <b>🔮 venda futura</b> e <b>comissão futura</b>, até o cliente pagar.'},
   {aba:'resumo', sel:'#tabela', card:true, titulo:'Desempenho por vendedor', texto:'Ranking de cada vendedor: cartelas entregues, vendidas, devolvidas, quantas ainda estão com ele, valor recebido, fiado e comissão do mês.'},
-  {aba:'resumo', sel:'#feed', card:true, titulo:'Últimas vendas', texto:'As vendas mais recentes. Em cada uma você pode <b>alterar pgto</b>, <b>alterar local</b> (comunidade) ou <b>estornar</b> uma venda feita por engano. O botão de baixo baixa todas as vendas em planilha.'},
+  {aba:'resumo', sel:'#cvVend', card:true, titulo:'Consultar vendas', texto:'A lista de vendas só aparece quando você precisa. Escolha <b>vendedor</b>, <b>equipe</b>, <b>data</b> e/ou <b>forma de pagamento</b> (ou busque pelo nº da cartela ou nome do comprador) e toque em <b>VER VENDAS</b>: abre uma tela com o resumo e a lista. Lá você pode <b>alterar pgto</b>, <b>alterar local</b> ou <b>estornar</b> uma venda.'},
   {aba:'fiados', sel:'#listaFiados', card:true, titulo:'6. Fiados', texto:'Cartelas reservadas para pagar depois. As atrasadas aparecem em vermelho. Toque em <b>💰 Recebido</b> quando o cliente pagar, em <b>↩️ Desistência</b> se ele desistir (a cartela volta para o vendedor) ou em <b>WhatsApp</b> para cobrar.'},
   {aba:'prestacao', sel:'#pcVend', card:true, titulo:'7. Prestação de contas', texto:'Quando o vendedor entregar o dinheiro, escolha o nome dele. O sistema já sugere quantas cartelas e qual <b>valor líquido</b> (valor pago menos a comissão) ele deve entregar. Confira e toque em <b>Registrar prestação</b>.'},
   {aba:'prestacao', sel:'#tabPc', card:true, titulo:'Situação de cada vendedor', texto:'Mostra quanto cada vendedor já prestou e quanto <b>falta prestar</b>. Vermelho = ainda deve ao caixa. Cartela fiada só entra aqui depois de paga.'},
