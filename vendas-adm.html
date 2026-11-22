@@ -223,6 +223,12 @@ td:first-child,th:first-child{text-align:left}
     <div id="eqDetalhe"></div>
   </div>
 
+  <div class="card" data-aba="equipe" style="border:2px solid #8a5a00">
+    <h2>👥 Lotes das equipes</h2>
+    <div style="font-size:12px;color:#9db4d8;margin-bottom:8px">O lote entregue à equipe pode ser vendido por <b>qualquer membro</b> dela. Cada venda conta para quem vendeu (comissão e prestação de contas continuam por vendedor) e soma no resultado da equipe. As equipes aparecem aqui quando algum vendedor é colocado nelas.</div>
+    <div id="listaEquipesLotes"></div>
+  </div>
+
   <div class="card" data-aba="equipe">
     <h2>Vendedores, lotes e devoluções</h2>
     <div id="listaVendedores"></div>
@@ -564,6 +570,7 @@ function pctCom(){ return (config.comissaoPct!=null && config.comissaoPct!=='' &
 const DS_DEF='2026-12-26T14:00', PRE_DEF='2026-12-31T13:00';
 let vendedores = {}, cartelas = {}, cadastros = {}, config = {evento:'',preco:0}, prestacoes = {};
 let vendedoresAll = {}, lotesTreino = {}, refsAmb = [];
+let lotesEquipe = {};   // lotes entregues às equipes: B()/lotesEquipe/{chave da equipe}/{id} = {de, ate, data, equipe}
 let AMB = 'real'; try{ if(localStorage.getItem('jd_adm_amb')==='treino') AMB='treino'; }catch(e){}
 function B(){ return AMB==='treino' ? 'equipeVendasTreino' : 'equipeVendas'; }
 function lotesRaw(id){ return AMB==='treino' ? (lotesTreino[id]||{}) : ((vendedores[id]&&vendedores[id].lotes)||{}); }
@@ -625,13 +632,14 @@ function escutarAmbiente(){
   o(B()+'/cartelas',s=>{ cartelas=s.val()||{}; desenhar(); });
   o(B()+'/acertos',s=>{ prestacoes=s.val()||{}; renderPrestacao(); try{ renderEquipes(); }catch(e){} });
   if(AMB==='treino') o('equipeVendasTreino/lotes',s=>{ lotesTreino=s.val()||{}; desenhar(); });
+  o(B()+'/lotesEquipe',s=>{ lotesEquipe=s.val()||{}; desenhar(); });
   escutarSorteio();
 }
 function trocarAmbiente(a){
   if(a==='treino' && config.treinamentoEncerrado){ alert('O treinamento foi encerrado. Para voltar a usá-lo, reabra o treinamento na aba Config.'); return; }
   if(a===AMB) return;
   AMB=a; try{ localStorage.setItem('jd_adm_amb',a); }catch(e){}
-  checklist={}; cartelas={}; despesas={}; desistencias={}; conflitos={}; prestacoes={}; matriz={}; lotesTreino={}; sorteio={numeros:'',max:75};
+  checklist={}; cartelas={}; despesas={}; desistencias={}; conflitos={}; prestacoes={}; matriz={}; lotesTreino={}; lotesEquipe={}; sorteio={numeros:'',max:75};
   filtrarVendedores(); marcarAmbienteUI(); escutarAmbiente(); desenhar();
   window.scrollTo(0,0);
 }
@@ -784,12 +792,16 @@ function renderEquipes(){
     o.vend++; const t=(c.eraFiado && c.pagoEm) ? c.pagoEm : (c.ts||0); if(t>=iDia) o.hoje++; if(t>=iSem) o.sem++; });
   const CAMPOS=['ent','vend','dev','comigo','hoje','sem','pagas','bruto','com','liq','prest','falta','fq','fv'];
   Object.keys(pv).forEach(id=>{ const o=pv[id], p=pc[id]||{q:0,b:0,com:0,liq:0,pv:0,fv:0};
-    o.pagas=p.q; o.bruto=p.b; o.com=p.com; o.liq=p.liq; o.prest=p.pv; o.falta=p.fv; o.comigo=Math.max(0,o.ent-o.vend-o.fq-o.dev); });
+    o.pagas=p.q; o.bruto=p.b; o.com=p.com; o.liq=p.liq; o.prest=p.pv; o.falta=p.fv; o.comigo=Math.max(0,o.ent-usadasNasFaixas(lotesDe(id))); });
 
   const G={};
   Object.keys(pv).forEach(id=>{ const nome=grupoDe(id), k=nome?norm(nome):'';
     const g=G[k]||(G[k]={k:k,nome:nome||'Sem equipe',ids:[]});
     g.ids.push(id); CAMPOS.forEach(f=>{ g[f]=(g[f]||0)+pv[id][f]; }); });
+  // lote da equipe: soma as cartelas entregues à equipe, as que ainda estão com ela e as devolvidas pela equipe
+  Object.keys(G).forEach(k=>{ if(!k) return; const ls=lotesEquipeDe(chaveEquipe(G[k].nome)); if(!ls.length) return;
+    const t=totalFaixas(ls); G[k].ent+=t; G[k].comigo+=Math.max(0,t-usadasNasFaixas(ls));
+    Object.keys(cartelas).forEach(n=>{ const c=cartelas[n], x=Number(n); if(c && c.status==='devolvida' && !c.vendedorId && ls.some(l=>x>=l.de&&x<=l.ate)) G[k].dev++; }); });
   const ks=Object.keys(G).filter(k=>k!=='').sort((a,b)=>G[b].vend-G[a].vend||G[b].bruto-G[a].bruto);
   if(G['']) ks.push('');
 
@@ -852,15 +864,78 @@ function lotesDe(id){
   const l=lotesRaw(id);
   return Object.keys(l).filter(k=>l[k]).map(k=>({key:k,de:Number(l[k].de),ate:Number(l[k].ate)})).sort((a,b)=>a.de-b.de);
 }
+// ---------- lotes das equipes ----------
+// Chave da equipe no banco: o nome normalizado (sem acento/maiúscula), sem caracteres proibidos pelo Firebase.
+// O app do vendedor usa exatamente a mesma regra.
+function chaveEquipe(nome){ return norm(nome).replace(/[.#$\[\]\/]/g,'_'); }
+function lotesEquipeDe(k){ const l=lotesEquipe[k]||{}; return Object.keys(l).filter(x=>l[x]).map(x=>({key:x,de:Number(l[x].de),ate:Number(l[x].ate),data:l[x].data||0})).sort((a,b)=>a.de-b.de); }
+// Todas as faixas entregues (vendedores e equipes), para não entregar a mesma cartela duas vezes
+function faixaOcupada(de,ate){
+  for(const vid in vendedores) for(const l of lotesDe(vid)) if(de<=l.ate && ate>=l.de) return 'o lote '+l.de+' a '+l.ate+' de '+vendedores[vid].nome;
+  for(const k in lotesEquipe) for(const l of lotesEquipeDe(k)) if(de<=l.ate && ate>=l.de) return 'o lote '+l.de+' a '+l.ate+' da equipe '+((lotesEquipe[k][l.key]||{}).equipe||k);
+  return '';
+}
+// Quantas cartelas das faixas já têm registro (vendida, fiado ou devolvida) — o resto ainda está "com" o dono do lote
+function usadasNasFaixas(ls){ let u=0; Object.keys(cartelas).forEach(n=>{ const x=Number(n); if(cartelas[n] && ls.some(l=>x>=l.de&&x<=l.ate)) u++; }); return u; }
+function totalFaixas(ls){ return ls.reduce((s,l)=>s+(l.ate-l.de+1),0); }
+function entregarLoteEquipe(k,nome){
+  const de=parseInt(document.getElementById('eqde_'+k).value,10), ate=parseInt(document.getElementById('eqate_'+k).value,10);
+  if(!(de>0)||!(ate>=de)){ alert('Informe a faixa: número inicial e final (final maior ou igual ao inicial).'); return; }
+  const oc=faixaOcupada(de,ate); if(oc){ alert('Essa faixa se sobrepõe a '+oc+'.'); return; }
+  if(!confirm('Entregar as cartelas '+de+' a '+ate+' ('+(ate-de+1)+') para a equipe '+nome+'?\n\nQualquer membro da equipe poderá vender essas cartelas.')) return;
+  db.ref(B()+'/lotesEquipe/'+k).push({de:de,ate:ate,data:Date.now(),equipe:nome})
+    .then(()=>{ document.getElementById('eqde_'+k).value=''; document.getElementById('eqate_'+k).value=''; }).catch(erroDb);
+}
+function removerLoteEquipe(k,key){
+  const l=(lotesEquipe[k]||{})[key]; if(!l) return;
+  const temVenda=Object.keys(cartelas).some(n=>{ const c=cartelas[n]; return c&&c.status!=='devolvida'&&Number(n)>=l.de&&Number(n)<=l.ate; });
+  if(temVenda){ alert('Há cartelas vendidas nesse lote. Não é possível remover.'); return; }
+  if(!confirm('Remover o lote '+l.de+' a '+l.ate+' da equipe '+(l.equipe||'')+'?')) return;
+  db.ref(B()+'/lotesEquipe/'+k+'/'+key).remove().catch(erroDb);
+}
+function devolverEquipe(k,nome){
+  const n=parseInt(document.getElementById('eqdev_'+k).value,10);
+  if(!(n>0)){ alert('Informe o número da cartela devolvida.'); return; }
+  if(!lotesEquipeDe(k).some(l=>n>=l.de&&n<=l.ate)){ alert('A cartela '+n+' não está nos lotes da equipe '+nome+'.'); return; }
+  db.ref(B()+'/cartelas/'+n).transaction(atual=>{
+    if(atual===null) return {status:'devolvida',equipeKey:k,equipe:nome,vendedorNome:'Equipe '+nome,ts:Date.now()};
+    return;
+  }).then(r=>{
+    if(r.committed) document.getElementById('eqdev_'+k).value='';
+    else alert('Cartela '+n+' já consta como vendida ou devolvida. Se foi venda errada, estorne a venda primeiro.');
+  }).catch(erroDb);
+}
+function renderLotesEquipes(){
+  const el=document.getElementById('listaEquipesLotes'); if(!el) return;
+  const guard={}; el.querySelectorAll('input').forEach(i=>{ if(i.id) guard[i.id]=i.value; });
+  const nomes=listaGrupos(); const chaves={}; nomes.forEach(n=>{ chaves[chaveEquipe(n)]=n; });
+  Object.keys(lotesEquipe).forEach(k=>{ if(!chaves[k]){ const l=lotesEquipeDe(k)[0]; chaves[k]=(l && (lotesEquipe[k][l.key]||{}).equipe)||k; } });   // equipe sem membros mas com lote
+  const ks=Object.keys(chaves).sort((a,b)=>chaves[a].localeCompare(chaves[b]));
+  el.innerHTML = ks.length ? ks.map(k=>{
+    const nome=chaves[k], ls=lotesEquipeDe(k), membros=Object.keys(vendedores).filter(id=>chaveEquipe(grupoDe(id))===k);
+    let v=0,f=0,d=0; const porMembro={};
+    Object.keys(cartelas).forEach(n=>{ const x=Number(n), c=cartelas[n]; if(!c || !ls.some(l=>x>=l.de&&x<=l.ate)) return;
+      if(c.status==='devolvida'){ d++; return; }
+      const pm=porMembro[c.vendedorNome||'?']=porMembro[c.vendedorNome||'?']||{v:0,f:0};
+      if(c.pagamento==='Fiado'){ f++; pm.f++; } else { v++; pm.v++; } });
+    const tot=totalFaixas(ls), disp=Math.max(0,tot-v-f-d);
+    return '<div class="vend"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px"><b style="color:#ffd24a">👥 '+esc(nome)+'</b><span style="font-size:12px;color:#9db4d8">'+membros.length+' membro(s): '+(membros.map(id=>esc(vendedores[id].nome)).join(', ')||'nenhum no momento')+'</span></div>'
+      +'<div style="font-size:13px;color:#9db4d8;margin:6px 0">Entregues '+tot+' • Vendidas '+v+(f?' • <span style="color:#ffb74d">Fiado '+f+'</span>':'')+' • Devolvidas '+d+' • <b style="color:#fff">Disponíveis '+disp+'</b></div>'
+      +(Object.keys(porMembro).length?'<div style="font-size:12px;margin-bottom:6px">'+Object.keys(porMembro).sort((a,b)=>porMembro[b].v-porMembro[a].v).map(m=>'<span class="tag" style="background:#1d3a66">'+esc(m)+': '+porMembro[m].v+(porMembro[m].f?' (+'+porMembro[m].f+' fiado)':'')+'</span>').join(' ')+'</div>':'')
+      +'<div>'+(ls.map(l=>'<span class="tag">'+l.de+' a '+l.ate+' <a href="#" style="color:#ff8a80;text-decoration:none" onclick="removerLoteEquipe(\''+k+'\',\''+l.key+'\');return false">✕</a></span>').join('')||'<span style="font-size:13px;color:#9db4d8">Nenhum lote entregue à equipe</span>')+'</div>'
+      +'<div class="linha"><div><label>Lote da equipe: do nº</label><input id="eqde_'+k+'" inputmode="numeric"></div><div><label>até o nº</label><input id="eqate_'+k+'" inputmode="numeric"></div></div>'
+      +'<button class="b-azul" onclick="entregarLoteEquipe(\''+k+'\','+esc(JSON.stringify(nome))+')">Entregar lote para a equipe</button>'
+      +(ls.length?'<div class="linha"><div><label>Devolução da equipe: nº da cartela</label><input id="eqdev_'+k+'" inputmode="numeric"></div></div><button class="b-ouro" onclick="devolverEquipe(\''+k+'\','+esc(JSON.stringify(nome))+')">Marcar devolvida</button>':'')
+      +'</div>';
+  }).join('') : '<div style="color:#9db4d8;font-size:13px">Nenhuma equipe ainda. No cartão do vendedor (abaixo), use "Colocar em equipe".</div>';
+  Object.keys(guard).forEach(k=>{ const e=document.getElementById(k); if(e) e.value=guard[k]; });
+}
+
 function entregarLote(id){
   const de=parseInt(document.getElementById('de_'+id).value,10);
   const ate=parseInt(document.getElementById('ate_'+id).value,10);
   if(!(de>0)||!(ate>=de)){ alert('Informe a faixa: número inicial e final (final maior ou igual ao inicial).'); return; }
-  for(const vid in vendedores){
-    for(const l of lotesDe(vid)){
-      if(de<=l.ate && ate>=l.de){ alert('Essa faixa se sobrepõe ao lote '+l.de+' a '+l.ate+' de '+vendedores[vid].nome+'.'); return; }
-    }
-  }
+  const oc=faixaOcupada(de,ate); if(oc){ alert('Essa faixa se sobrepõe a '+oc+'.'); return; }
   db.ref(lotesPath(id)).push({de:de,ate:ate,data:Date.now()}).catch(erroDb);
 }
 function removerLote(id,key){
@@ -975,8 +1050,11 @@ function desenhar(){
       const o=mp[k]||(mp[k]={nome:nm||'Não informada',q:0,v:0,f:0}); o.q++; if(x.c.pagamento==='Fiado') o.f+=Number(x.c.valor)||0; else o.v+=Number(x.c.valor)||0; });
     const ord=Object.keys(mp).sort((a,b)=>mp[b].q-mp[a].q);
     document.getElementById('tabCom').innerHTML=ord.map(k=>{ const o=mp[k]; return '<tr><td>'+(k===''?'<span style="color:#9db4d8">'+esc(o.nome)+'</span>':esc(o.nome))+'</td><td>'+o.q+'</td><td>'+moeda(o.v)+'</td><td>'+moeda(o.f)+'</td></tr>'; }).join('')||'<tr><td colspan="4" style="color:#9db4d8">Nenhuma venda ainda.</td></tr>'; }
+  // "Com o vendedor" = cartelas dos lotes DELE ainda sem registro (vendas que ele fez no lote da equipe não contam aqui)
+  Object.keys(st).forEach(id=>{ st[id].comigo=Math.max(0, st[id].ent - usadasNasFaixas(lotesDe(id))); });
   let entTotal=0, comTotal=0;
-  Object.keys(st).forEach(id=>{ entTotal+=st[id].ent; comTotal+=Math.max(0,st[id].ent-st[id].vend-st[id].res-st[id].dev); });
+  Object.keys(st).forEach(id=>{ entTotal+=st[id].ent; comTotal+=st[id].comigo; });
+  Object.keys(lotesEquipe).forEach(k=>{ const ls=lotesEquipeDe(k), t=totalFaixas(ls); entTotal+=t; comTotal+=Math.max(0,t-usadasNasFaixas(ls)); });
   document.getElementById('rHoje').textContent=tHoje;
   document.getElementById('rSem').textContent=tSem;
   document.getElementById('rMes').textContent=tMes;
@@ -1024,7 +1102,7 @@ function desenhar(){
       +'<button class="b-cinza b-peq" onclick="alternarAtivo(\''+id+'\')">'+(v.ativo===false?'Reativar':'Desativar')+'</button>'
       +'<button class="b-verm b-peq" onclick="excluirVendedor(\''+id+'\')">Excluir</button></div></div>'
       +'<div style="display:flex;gap:10px;align-items:center;margin:8px 0">'+(cd.foto?'<img src="'+esc(cd.foto)+'" style="width:64px;height:64px;object-fit:cover;border-radius:8px">':'')+'<div style="font-size:12px;color:#9db4d8">'+esc(cd.nomeCompleto||'')+'<br>RG: '+esc(cd.rg||'-')+' • Tel: '+esc(cd.telefone||'-')+'<br>'+esc(cd.endereco||'')+'</div></div>'
-      +'<div style="font-size:13px;color:#9db4d8;margin:6px 0">Entregues '+s.ent+' • Vendidas '+s.vend+' • Devolvidas '+s.dev+' • Comigo '+Math.max(0,s.ent-s.vend-s.dev)+'</div>'
+      +'<div style="font-size:13px;color:#9db4d8;margin:6px 0">Entregues '+s.ent+' • Vendidas '+s.vend+' • Devolvidas '+s.dev+' • Comigo '+s.comigo+(v.grupo && lotesEquipeDe(chaveEquipe(v.grupo)).length?' • <span style="color:#ffd24a">também vende o lote da equipe '+esc(v.grupo)+'</span>':'')+'</div>'
       +'<div>'+(lotesDe(id).map(l=>'<span class="tag">'+l.de+' a '+l.ate+' <a href="#" style="color:#ff8a80;text-decoration:none" onclick="removerLote(\''+id+'\',\''+l.key+'\');return false">✕</a></span>').join('')||'<span style="font-size:13px;color:#9db4d8">Sem lotes</span>')+'</div>'
       +'<div class="linha"><div><label>Lote: do nº</label><input id="de_'+id+'" inputmode="numeric"></div><div><label>até o nº</label><input id="ate_'+id+'" inputmode="numeric"></div></div>'
       +'<button class="b-azul" onclick="entregarLote(\''+id+'\')">Entregar lote</button>'
@@ -1034,10 +1112,11 @@ function desenhar(){
       +'</div>';
   }).join('') : '<div style="color:#9db4d8">Nenhum vendedor cadastrado.</div>';
   Object.keys(guard).forEach(k=>{ const e=document.getElementById(k); if(e) e.value=guard[k]; });
+  try{ renderLotesEquipes(); }catch(e){ console.error(e); }
 
   const rank=ids.slice().sort((a,b)=>st[b].mes-st[a].mes||st[b].vend-st[a].vend);
   document.getElementById('tabela').innerHTML = rank.map(id=>{ const s=st[id];
-    return '<tr><td>'+esc(vendedores[id].nome)+'</td><td>'+s.ent+'</td><td><b>'+s.vend+'</b></td><td style="color:#ffb74d">'+s.res+'</td><td>'+s.dev+'</td><td>'+Math.max(0,s.ent-s.vend-s.res-s.dev)+'</td><td>'+s.hoje+'</td><td>'+s.sem+'</td><td>'+s.mes+'</td><td>'+moeda(s.valor)+'</td><td style="color:#ffb74d">'+moeda(s.fiado)+'</td><td>'+moeda(s.valor*pctCom()/100)+'</td><td style="color:#ffb74d">'+moeda(s.fiado*pctCom()/100)+'</td></tr>';
+    return '<tr><td>'+esc(vendedores[id].nome)+'</td><td>'+s.ent+'</td><td><b>'+s.vend+'</b></td><td style="color:#ffb74d">'+s.res+'</td><td>'+s.dev+'</td><td>'+s.comigo+'</td><td>'+s.hoje+'</td><td>'+s.sem+'</td><td>'+s.mes+'</td><td>'+moeda(s.valor)+'</td><td style="color:#ffb74d">'+moeda(s.fiado)+'</td><td>'+moeda(s.valor*pctCom()/100)+'</td><td style="color:#ffb74d">'+moeda(s.fiado*pctCom()/100)+'</td></tr>';
   }).join('');
 
   const ck=Object.keys(conflitos).filter(k=>conflitos[k]);
