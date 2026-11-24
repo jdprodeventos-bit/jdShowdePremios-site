@@ -491,7 +491,7 @@ td:first-child,th:first-child{text-align:left}
     <button class="b-cinza" onclick="reiniciarTreino()">Reiniciar treinamento (zera vendas e prestações)</button>
     <button class="b-verm" onclick="encerrarTreinamento()">🏁 ENCERRAR TREINAMENTO</button>
     <button class="b-cinza" onclick="reabrirTreinamento()">Reabrir treinamento</button>
-    <div style="font-size:12px;color:#9db4d8;margin-top:6px"><b>Encerrar:</b> apaga todos os dados de treinamento, tira o botão do treinamento do painel, passa os vendedores de treinamento para a equipe real (mantendo cadastro e PIN, sem lotes) e remove os vendedores de exemplo. A partir daí só valem os dados reais.</div>
+    <div style="font-size:12px;color:#9db4d8;margin-top:6px"><b>Encerrar:</b> zera as vendas, fiados, prestações e <b>todos os lotes</b> do treinamento e remove os vendedores de exemplo. Os vendedores passam para o real com o <b>mesmo cadastro, PIN e equipe</b> (não precisa trocar o PIN), e o <b>checklist e as despesas</b> vão junto para o real. Passa todos de uma vez: não é preciso usar o "Passar para REAL" de cada um. O botão do treinamento sai do painel.</div>
     <hr style="border:0;border-top:1px solid #264a86;margin:14px 0">
     <div style="font-size:13px;color:#9db4d8">Limpeza de testes antigos feitos diretamente na equipe real (versões anteriores):</div>
     <button class="b-cinza" onclick="apagarTeste()">Apagar dados de teste antigos (da equipe REAL)</button>
@@ -1931,17 +1931,33 @@ function reiniciarTreino(){
   const upd={}; ['cartelas','acertos','desistencias','conflitos','sorteio','matriz'].forEach(k=>{ upd['equipeVendasTreino/'+k]=null; });
   db.ref().update(upd).then(()=>msg('msgTeste','Treinamento reiniciado.')).catch(erroDb);
 }
-function encerrarTreinamento(){
+// Transição TREINAMENTO -> REAL
+//  ZERA: tudo que os vendedores/equipes movimentaram no treino (vendas, fiados, desistências, conflitos,
+//        prestações, sorteio/matriz) e TODOS os lotes liberados (individuais e de equipe, inclusive lote real antigo);
+//        apaga os vendedores de exemplo (Ana, Carla, Pedro).
+//  MANTÉM: vendedores reais (cadastro, PIN e equipe), configuração, e o que é do gerente: checklist e despesas
+//          (passam do treino para o real).
+async function encerrarTreinamento(){
   const tr=Object.keys(vendedoresAll).filter(id=>vendedoresAll[id]&&vendedoresAll[id].ambiente==='treino');
   const ex=tr.filter(id=>vendedoresAll[id].exemplo), reais=tr.filter(id=>!vendedoresAll[id].exemplo);
-  const r=prompt('ENCERRAR O TREINAMENTO\n\n• Todas as vendas, lotes, despesas e prestações de TREINAMENTO serão APAGADAS.\n• '+reais.length+' vendedor(es) de treinamento passam para a equipe REAL (mantêm cadastro e PIN, sem lotes).\n• '+ex.length+' vendedor(es) de exemplo (Ana, Carla, Pedro) serão removidos.\n• Os dados REAIS não são alterados.\n\nPara confirmar, digite ENCERRAR:');
+  let chk={}, desp={};
+  try{
+    chk=(await db.ref('equipeVendasTreino/checklist').once('value')).val()||{};
+    desp=(await db.ref('equipeVendasTreino/despesas').once('value')).val()||{};
+  }catch(e){ erroDb(e); return; }
+  const nChk=Object.keys(chk).length, nDesp=Object.keys(desp).length;
+  const r=prompt('ENCERRAR O TREINAMENTO\n\n'
+    +'SERÁ ZERADO:\n• Todas as vendas, fiados, desistências e prestações de contas do treinamento.\n• Todos os lotes liberados (individuais e de equipe). Depois você entrega os lotes reais.\n• '+ex.length+' vendedor(es) de exemplo (Ana, Carla, Pedro).\n\n'
+    +'CONTINUA:\n• '+reais.length+' vendedor(es) passam para o REAL com o mesmo cadastro, PIN e equipe.\n• Checklist do evento ('+nChk+' tarefa(s)) e despesas ('+nDesp+') passam para o REAL.\n• Configuração (evento, preço, comissão, meta).\n\nPara confirmar, digite ENCERRAR:');
   if(r!=='ENCERRAR'){ if(r!==null) alert('Cancelado: a palavra não foi digitada corretamente.'); return; }
   const upd={};
   ex.forEach(id=>{ upd['equipeVendas/vendedores/'+id]=null; upd['equipeVendas/cadastros/'+id]=null; });
-  reais.forEach(id=>{ upd['equipeVendas/vendedores/'+id+'/ambiente']=null; });
+  reais.forEach(id=>{ upd['equipeVendas/vendedores/'+id+'/ambiente']=null; upd['equipeVendas/vendedores/'+id+'/lotes']=null; });   // sem nenhum lote
+  Object.keys(chk).forEach(k=>{ upd['equipeVendas/checklist/'+k]=chk[k]; });     // checklist do gerente vai para o real
+  Object.keys(desp).forEach(k=>{ upd['equipeVendas/despesas/'+k]=desp[k]; });    // despesas do gerente vão para o real
   upd['equipeVendasTreino']=null;
   upd['equipeVendas/config/treinamentoEncerrado']=true;
-  db.ref().update(upd).then(()=>{ msg('msgTeste','🏁 Treinamento encerrado. Agora valem apenas os dados reais.'); if(AMB==='treino') trocarAmbiente('real'); }).catch(erroDb);
+  db.ref().update(upd).then(()=>{ msg('msgTeste','🏁 Treinamento encerrado. Vendedores, equipes, checklist e despesas no REAL; vendas e lotes zerados.'); if(AMB==='treino') trocarAmbiente('real'); }).catch(erroDb);
 }
 function reabrirTreinamento(){
   if(!config.treinamentoEncerrado){ msg('msgTeste','O treinamento não está encerrado.'); return; }
